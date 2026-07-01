@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">一键跳转</string>
+    <string name="shortcut_settings">设置</string>
+    <string name="shortcut_settings_long">打开规则设置</string>
+</resources>

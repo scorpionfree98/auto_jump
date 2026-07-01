@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="权限设置"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="根据你使用的条件类型，需要授予相应权限："
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 位置权限 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="位置权限"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="用途：WiFi 名称判断（Android 10+）、地理位置条件"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:id="@+id/tv_location_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="未授权"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp" />
+
+        <Button
+            android:id="@+id/btn_request_location"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="授予位置权限"
+            android:layout_marginTop="8dp" />
+
+        <!-- 蓝牙权限 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="蓝牙权限"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="用途：蓝牙设备连接条件"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:id="@+id/tv_bluetooth_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="未授权"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp" />
+
+        <Button
+            android:id="@+id/btn_request_bluetooth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="授予蓝牙权限"
+            android:layout_marginTop="8dp" />
+
+        <!-- 后台运行 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="后台运行权限"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="请在系统设置中允许本应用后台运行、自启动、后台弹出界面。HyperOS 可能需要关闭「省电模式」。"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginTop="4dp" />
+
+        <Button
+            android:id="@+id/btn_app_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="打开应用设置"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="注意：后台定位（地理位置条件）属于敏感权限，建议仅在必要时使用。"
+            android:textSize="12sp"
+            android:textColor="#FF6666"
+            android:layout_marginTop="16dp" />
+    </LinearLayout>
+</ScrollView>
