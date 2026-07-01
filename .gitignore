@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+build/
+app/build/
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+.DS_Store
+
+# 编译产物
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# 打包文件
+*.tar.gz
+*.zip
+
+# Log
+*.log
