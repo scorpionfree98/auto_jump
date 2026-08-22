@@ -14,6 +14,7 @@ public class Rule implements Serializable {
     private String name;            // 规则名称
     private int priority;           // 优先级（数字越大越优先）
     private boolean enabled;        // 是否启用
+    private boolean requestUnlockBeforeRun; // 锁屏时是否唤醒并交给系统认证
     private List<RuleCondition> conditions;  // 条件列表（AND 关系）
     private List<RuleAction> actions;   // 按顺序执行的动作列表
 
@@ -26,6 +27,7 @@ public class Rule implements Serializable {
         this.name = name;
         this.priority = 0;
         this.enabled = true;
+        this.requestUnlockBeforeRun = false;
         this.conditions = new ArrayList<>();
         this.actions = new ArrayList<>();
     }
@@ -41,6 +43,11 @@ public class Rule implements Serializable {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isRequestUnlockBeforeRun() { return requestUnlockBeforeRun; }
+    public void setRequestUnlockBeforeRun(boolean requestUnlockBeforeRun) {
+        this.requestUnlockBeforeRun = requestUnlockBeforeRun;
+    }
 
     public List<RuleCondition> getConditions() {
         if (conditions == null) conditions = new ArrayList<>();

@@ -37,6 +37,20 @@
             android:inputType="number"
             android:text="0" />
 
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switch_request_unlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="锁屏时唤醒并请求系统解锁" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="无安全锁时可直接继续；有密码、指纹或人脸时由系统完成认证。本应用不会保存或模拟解锁凭据。"
+            android:textColor="#666666"
+            android:textSize="12sp" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -87,6 +87,11 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             return;
         }
 
+        if (isKeyguardLocked()) {
+            schedule(sessionId, 1000);
+            return;
+        }
+
         long now = System.currentTimeMillis();
         if (session.getNotBefore() > now) {
             schedule(sessionId, session.getNotBefore() - now);
@@ -99,10 +104,6 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             return;
         }
 
-        if (isKeyguardLocked()) {
-            schedule(sessionId, 1000);
-            return;
-        }
         if (isDisallowedPackage(action.getTargetPackage())) {
             fail(session, "不允许在系统或锁屏界面执行点击", now);
             return;

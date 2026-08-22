@@ -30,4 +30,14 @@ public class ExecutionSessionTest {
         session.advance(20);
         assertEquals(0, session.getNotBefore());
     }
+
+    @Test public void carriesExplicitUnlockPreferenceFromRule() {
+        Rule rule = new Rule("rule", "rule");
+        rule.setRequestUnlockBeforeRun(true);
+        rule.getActions().add(RuleAction.deeplink("demo://open"));
+
+        ExecutionSession session = ExecutionSession.fromRule(rule, 10);
+
+        assertTrue(session.isRequestUnlockBeforeRun());
+    }
 }

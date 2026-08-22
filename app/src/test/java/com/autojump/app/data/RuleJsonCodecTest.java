@@ -15,8 +15,9 @@ public class RuleJsonCodecTest {
     private final RuleJsonCodec codec = new RuleJsonCodec();
 
     @Test
-    public void schemaV2RoundTripsTypedConditionsAndActions() {
+    public void schemaV3RoundTripsTypedConditionsActionsAndUnlockPreference() {
         Rule rule = new Rule("rule-1", "工作日打卡");
+        rule.setRequestUnlockBeforeRun(true);
         rule.setConditions(Arrays.asList(
                 RuleCondition.time(new int[]{1, 2, 3, 4, 5}, 8, 0, 9, 0),
                 RuleCondition.wifi("Office")));
@@ -28,7 +29,8 @@ public class RuleJsonCodecTest {
         String json = codec.encode(Arrays.asList(rule));
         List<Rule> decoded = codec.decode(json);
 
-        assertTrue(json.contains("\"schemaVersion\": 2"));
+        assertTrue(json.contains("\"schemaVersion\": 3"));
+        assertTrue(decoded.get(0).isRequestUnlockBeforeRun());
         assertEquals(ConditionType.WIFI, decoded.get(0).getConditions().get(1).getType());
         assertEquals(ActionType.CLICK, decoded.get(0).getActions().get(1).getType());
         assertEquals("com.example:id/check_in", decoded.get(0).getActions().get(1).getViewId());
@@ -45,6 +47,7 @@ public class RuleJsonCodecTest {
         assertEquals(ConditionType.WIFI, decoded.get(0).getConditions().get(0).getType());
         assertEquals(ActionType.DEEPLINK, decoded.get(0).getActions().get(0).getType());
         assertEquals("demo://open", decoded.get(0).getActions().get(0).getDeeplink());
+        assertFalse(decoded.get(0).isRequestUnlockBeforeRun());
     }
 
     @Test(expected = RuntimeException.class)

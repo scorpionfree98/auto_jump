@@ -31,7 +31,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:noHistory="true"
             android:theme="@style/Theme.AutoJumpTransparent">
             <intent-filter>
@@ -59,6 +59,15 @@
         <activity
             android:name=".ui.ClickActionEditActivity"
             android:exported="false"
+            android:theme="@style/Theme.AutoJump" />
+
+        <activity
+            android:name=".UnlockGateActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@style/Theme.AutoJump" />
 
         <!-- 权限引导页 -->

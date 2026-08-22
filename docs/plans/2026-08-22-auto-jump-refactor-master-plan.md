@@ -29,7 +29,7 @@
 
 The refactor is complete only when all of the following are true:
 
-1. Existing v1 rules load without crashing and are rewritten as schema v2.
+1. Existing v1/v2 rules load without crashing and are rewritten as schema v3.
 2. New rules survive save, restart, export, import, and app upgrade.
 3. A rule can open a deeplink, wait, click one or more targets, and report the result.
 4. Click targets support view ID, exact text, content description, and normalized coordinate fallback.

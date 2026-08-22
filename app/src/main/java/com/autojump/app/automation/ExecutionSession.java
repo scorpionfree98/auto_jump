@@ -12,6 +12,7 @@ public class ExecutionSession {
     private String id;
     private String ruleId;
     private String ruleName;
+    private boolean requestUnlockBeforeRun;
     private List<RuleAction> actions = new ArrayList<>();
     private int currentActionIndex;
     private long createdAt;
@@ -27,6 +28,7 @@ public class ExecutionSession {
         session.id = UUID.randomUUID().toString();
         session.ruleId = rule.getId();
         session.ruleName = rule.getName();
+        session.requestUnlockBeforeRun = rule.isRequestUnlockBeforeRun();
         session.actions = new ArrayList<>(rule.getActions());
         session.createdAt = now;
         session.updatedAt = now;
@@ -49,6 +51,7 @@ public class ExecutionSession {
     public String getId() { return id; }
     public String getRuleId() { return ruleId; }
     public String getRuleName() { return ruleName; }
+    public boolean isRequestUnlockBeforeRun() { return requestUnlockBeforeRun; }
     public List<RuleAction> getActions() { if (actions == null) actions = new ArrayList<>(); return actions; }
     public int getCurrentActionIndex() { return currentActionIndex; }
     public long getCreatedAt() { return createdAt; }

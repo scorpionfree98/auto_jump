@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** Encodes schema v2 and tolerantly migrates the unversioned v1 rule array. */
+/** Encodes schema v3 and tolerantly migrates older rule documents and arrays. */
 public class RuleJsonCodec {
     private final Gson gson;
 
@@ -57,6 +57,7 @@ public class RuleJsonCodec {
                     stringValue(object, "name", "未命名规则"));
             rule.setPriority(intValue(object, "priority", 0));
             rule.setEnabled(booleanValue(object, "enabled", true));
+            rule.setRequestUnlockBeforeRun(booleanValue(object, "requestUnlockBeforeRun", false));
             rule.setConditions(decodeConditions(object.getAsJsonArray("conditions")));
             rule.setActions(decodeActions(object.getAsJsonArray("actions")));
             rules.add(rule);

@@ -3,9 +3,11 @@ package com.autojump.app.automation;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.app.KeyguardManager;
 import android.net.Uri;
 import android.util.Log;
 import com.autojump.app.bean.Rule;
+import com.autojump.app.UnlockGateActivity;
 import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 
@@ -24,8 +26,35 @@ public class AutomationOrchestrator {
         ExecutionSession session = ExecutionSession.fromRule(rule, now);
         store.upsert(session);
         logs.append(session, "ENQUEUED", "规则已加入执行队列");
+        if (session.isRequestUnlockBeforeRun() && isKeyguardLocked(context)) {
+            session.setStatus(ExecutionSession.Status.WAITING);
+            store.upsert(session);
+            logs.append(session, "WAITING", "等待系统解锁");
+            Intent unlock = new Intent(context, UnlockGateActivity.class);
+            unlock.putExtra(UnlockGateActivity.EXTRA_SESSION_ID, session.getId());
+            unlock.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            try {
+                context.startActivity(unlock);
+            } catch (RuntimeException error) {
+                logs.append(session, "WAITING", "系统限制了锁屏解锁界面的启动，请解锁后重试");
+            }
+            return session;
+        }
         continueUntilExternalEvent(context, session, now);
         return session;
+    }
+
+    public boolean resumeAfterUnlock(Context context, String sessionId) {
+        ExecutionSession session = store.findById(sessionId);
+        if (session == null || isKeyguardLocked(context)) return false;
+        long now = System.currentTimeMillis();
+        session.setStatus(ExecutionSession.Status.PENDING);
+        session.setUpdatedAt(now);
+        session.setLastError(null);
+        store.upsert(session);
+        logs.append(session, "RESUMED", "系统解锁完成，继续执行");
+        continueUntilExternalEvent(context, session, now);
+        return true;
     }
 
     public void continueUntilExternalEvent(Context context, ExecutionSession session, long now) {
@@ -97,5 +126,10 @@ public class AutomationOrchestrator {
             session.setUpdatedAt(now);
             store.upsert(session);
         }
+    }
+
+    private boolean isKeyguardLocked(Context context) {
+        KeyguardManager manager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+        return manager != null && manager.isKeyguardLocked();
     }
 }

@@ -18,6 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import com.autojump.app.bean.Rule;
 import com.autojump.app.domain.ActionType;
@@ -42,6 +43,7 @@ public class RuleEditActivity extends AppCompatActivity {
     private EditText priority;
     private LinearLayout conditionsContainer;
     private LinearLayout actionsContainer;
+    private SwitchCompat requestUnlock;
     private Rule rule;
     private boolean isEdit;
     private int pendingActionIndex = -1;
@@ -57,6 +59,7 @@ public class RuleEditActivity extends AppCompatActivity {
         priority = findViewById(R.id.et_priority);
         conditionsContainer = findViewById(R.id.ll_conditions);
         actionsContainer = findViewById(R.id.ll_actions);
+        requestUnlock = findViewById(R.id.switch_request_unlock);
         Button addCondition = findViewById(R.id.btn_add_condition);
         Button addAction = findViewById(R.id.btn_add_action);
         Button save = findViewById(R.id.btn_save);
@@ -104,6 +107,7 @@ public class RuleEditActivity extends AppCompatActivity {
     private void showRule() {
         ruleName.setText(rule.getName());
         priority.setText(String.valueOf(rule.getPriority()));
+        requestUnlock.setChecked(rule.isRequestUnlockBeforeRun());
         refreshConditions();
         refreshActions();
     }
@@ -404,6 +408,7 @@ public class RuleEditActivity extends AppCompatActivity {
         try {
             rule.setName(name);
             rule.setPriority(integer(priority, "优先级"));
+            rule.setRequestUnlockBeforeRun(requestUnlock.isChecked());
             List<Rule> rules = SPUtil.getRuleList(this);
             boolean replaced = false;
             if (isEdit) {

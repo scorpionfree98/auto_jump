@@ -42,7 +42,8 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Rule rule = mList.get(position);
         holder.tvName.setText(rule.getName());
-        holder.tvPriority.setText("优先级: " + rule.getPriority());
+        holder.tvPriority.setText("优先级: " + rule.getPriority()
+                + (rule.isRequestUnlockBeforeRun() ? " · 锁屏时请求系统解锁" : ""));
 
         // 显示条件摘要
         StringBuilder conditionSummary = new StringBuilder();
