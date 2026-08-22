@@ -16,6 +16,7 @@
 - 权限与运行状态页可查看服务状态、待执行任务、点击记录状态和最近日志，并可停止全部待执行任务。
 - 权限页提供仅点击 AutoJump 自身控件的安全自检，同时核对目标回调和成功日志，便于安装后验收无障碍服务。
 - JSON 规则文件采用 schema v3；旧版数组和 schema v1/v2 会自动迁移。
+- 管理首页使用 Material 卡片界面，并固定展示“默认跳转”兜底规则；没有启用自定义规则时，普通点击桌面图标会执行该链接。
 
 ## 快速使用
 
@@ -65,6 +66,17 @@ bash docker/run_remote_gradle.sh :app:testDebugUnitTest :app:lintDebug :app:asse
 
 远程同步默认目录为 `/home/kmkuang/codex_build/auto_jump_click`。本地无需安装 JDK、Android SDK 或 Docker；需要能通过 SSH 访问构建机。
 
+120 还提供常驻的 Android 9（API 28）AOSP 无界面模拟器，用于安装、页面跳转和基础 UI 回归：
+
+```bash
+bash docker/run_remote_emulator.sh start
+bash docker/run_remote_emulator.sh wait
+bash docker/run_remote_emulator.sh install
+bash docker/run_remote_emulator.sh status
+```
+
+服务器没有暴露嵌套 KVM，因此模拟器使用软件虚拟化，首次开机和动画较慢。点击时序、录屏悬浮窗和 HyperOS 行为仍以真机验收为准。
+
 远程 Debug 构建把 Android 调试密钥保存在构建机的固定目录 `/home/kmkuang/codex_build/autojump-signing/android`，容器重建后仍使用同一签名。该密钥只用于开发升级测试；正式发布必须使用单独、受保护且有离线备份的发布密钥。
 
 本地有完整 Android 环境时也可运行：
@@ -104,6 +116,8 @@ docs/plans/      重构设计与实施计划
 
 - 自动化核心、录制阶段悬浮窗、延迟采集、权限状态和安全解锁衔接：已实现。
 - 120 Docker 构建、36 项单元测试及 Android Lint：已通过。
+- 120 Android 9 模拟器：规则首页、默认跳转展示、“新增规则”和空状态“创建规则”均已自动回归通过。
+- Material 管理首页、固定可见的默认跳转卡片以及规则/点击/权限编辑页：已实现。
 - 小米 14 Pro / HyperOS 3：安装、数据恢复、同签名覆盖升级、无障碍授权和 1 秒延迟控件 ID 点击已通过。
 - 录制悬浮窗真机回归：APK 已生成，当前设备未连接，待补测。
 - 其他 Android 版本、文字/描述选择器、坐标回退和完整锁屏矩阵：待继续验收。

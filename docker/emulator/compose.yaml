@@ -1,0 +1,23 @@
+services:
+  android:
+    image: autojump-emulator:aosp-api28
+    container_name: autojump-emulator
+    restart: unless-stopped
+    environment:
+      EMULATOR_PARAMS: -accel off -no-audio -no-boot-anim
+    volumes:
+      - autojump-emulator-data:/android-home
+      - ../../:/workspace:ro
+    shm_size: 2gb
+    cpus: 12
+    mem_limit: 12g
+    healthcheck:
+      test: ["CMD-SHELL", "/android/sdk/platform-tools/adb shell getprop sys.boot_completed | grep -q 1"]
+      interval: 30s
+      timeout: 20s
+      retries: 20
+      start_period: 15m
+
+volumes:
+  autojump-emulator-data:
+    name: autojump-emulator-data-api28
