@@ -2,7 +2,6 @@ package com.autojump.app.ui;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -14,7 +13,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import com.autojump.app.R;
-import com.autojump.app.automation.AutoJumpAccessibilityService;
+import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.automation.ClickRecordingStore;
 import com.autojump.app.automation.RecordedClick;
 import com.autojump.app.domain.RuleAction;
@@ -107,15 +106,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     }
 
     private boolean isAccessibilityServiceEnabled() {
-        String enabledServices = Settings.Secure.getString(
-                getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (enabledServices == null) return false;
-        ComponentName expected = new ComponentName(this, AutoJumpAccessibilityService.class);
-        for (String value : enabledServices.split(":")) {
-            ComponentName current = ComponentName.unflattenFromString(value);
-            if (expected.equals(current)) return true;
-        }
-        return false;
+        return AccessibilityServiceState.isEnabled(this);
     }
 
     private void openAccessibilitySettings() {

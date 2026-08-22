@@ -12,13 +12,18 @@ import com.autojump.app.domain.RuleAction;
 public class AutomationOrchestrator {
     private static final String TAG = "AutomationOrchestrator";
     private final PendingExecutionStore store;
+    private final ExecutionLogStore logs;
 
-    public AutomationOrchestrator(Context context) { store = new PendingExecutionStore(context); }
+    public AutomationOrchestrator(Context context) {
+        store = new PendingExecutionStore(context);
+        logs = new ExecutionLogStore(context);
+    }
 
     public ExecutionSession enqueue(Context context, Rule rule) {
         long now = System.currentTimeMillis();
         ExecutionSession session = ExecutionSession.fromRule(rule, now);
         store.upsert(session);
+        logs.append(session, "ENQUEUED", "规则已加入执行队列");
         continueUntilExternalEvent(context, session, now);
         return session;
     }
@@ -27,6 +32,7 @@ public class AutomationOrchestrator {
         RuleAction action = session.currentAction();
         if (action == null) {
             session.setStatus(ExecutionSession.Status.COMPLETED);
+            logs.append(session, "COMPLETED", "规则动作全部完成");
             store.remove(session.getId());
             return;
         }
@@ -45,6 +51,7 @@ public class AutomationOrchestrator {
             session.setNotBefore(0);
         }
         if (action.getType() == ActionType.WAIT) {
+            logs.append(session, "WAITING", "等待 " + action.getWaitDurationMs() + "ms");
             session.advance(now);
             session.setNotBefore(now + action.getWaitDurationMs());
             session.setStatus(ExecutionSession.Status.WAITING);
@@ -61,8 +68,12 @@ public class AutomationOrchestrator {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(action.getDeeplink()));
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(intent);
+                logs.append(session, "SUCCESS", "已打开 deeplink");
                 session.advance(now);
-                if (session.getStatus() == ExecutionSession.Status.COMPLETED) store.remove(session.getId());
+                if (session.getStatus() == ExecutionSession.Status.COMPLETED) {
+                    logs.append(session, "COMPLETED", "规则动作全部完成");
+                    store.remove(session.getId());
+                }
                 else { session.setStatus(ExecutionSession.Status.WAITING); store.upsert(session); }
             } catch (ActivityNotFoundException error) {
                 failOrContinue(context, session, action, "没有应用可以处理该链接", now);
@@ -75,6 +86,7 @@ public class AutomationOrchestrator {
     private void failOrContinue(Context context, ExecutionSession session, RuleAction action,
                                 String message, long now) {
         Log.e(TAG, "动作执行失败: " + message);
+        logs.append(session, "FAILED", message == null ? "动作执行失败" : message);
         if (action.isContinueOnFailure()) {
             session.advance(now);
             store.upsert(session);

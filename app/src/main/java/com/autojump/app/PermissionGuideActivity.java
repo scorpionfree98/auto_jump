@@ -1,6 +1,7 @@
 package com.autojump.app;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -9,95 +10,202 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import com.autojump.app.R;
+import com.autojump.app.automation.AccessibilityServiceState;
+import com.autojump.app.automation.ClickRecordingStore;
+import com.autojump.app.automation.ExecutionLogStore;
+import com.autojump.app.automation.ExecutionSession;
+import com.autojump.app.automation.PendingExecutionStore;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
-/**
- * 权限引导页面
- */
+/** Explains optional permissions and gives the user control over automation state. */
 public class PermissionGuideActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_LOCATION = 1001;
     private static final int REQUEST_CODE_BLUETOOTH = 1002;
 
-    private TextView tvLocationStatus, tvBluetoothStatus;
-    private Button btnRequestLocation, btnRequestBluetooth, btnAppSettings;
+    private TextView accessibilityStatus;
+    private TextView locationStatus;
+    private TextView bluetoothStatus;
+    private TextView pendingStatus;
+    private TextView recordingStatus;
+    private TextView recentLogs;
+    private Button requestLocation;
+    private Button requestBluetooth;
+
+    private PendingExecutionStore pendingStore;
+    private ClickRecordingStore recordingStore;
+    private ExecutionLogStore logStore;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_permission_guide);
+        setTitle("权限与运行状态");
 
-        tvLocationStatus = findViewById(R.id.tv_location_status);
-        tvBluetoothStatus = findViewById(R.id.tv_bluetooth_status);
-        btnRequestLocation = findViewById(R.id.btn_request_location);
-        btnRequestBluetooth = findViewById(R.id.btn_request_bluetooth);
-        btnAppSettings = findViewById(R.id.btn_app_settings);
+        accessibilityStatus = findViewById(R.id.tv_accessibility_status);
+        locationStatus = findViewById(R.id.tv_location_status);
+        bluetoothStatus = findViewById(R.id.tv_bluetooth_status);
+        pendingStatus = findViewById(R.id.tv_pending_status);
+        recordingStatus = findViewById(R.id.tv_recording_status);
+        recentLogs = findViewById(R.id.tv_recent_logs);
+        requestLocation = findViewById(R.id.btn_request_location);
+        requestBluetooth = findViewById(R.id.btn_request_bluetooth);
 
-        btnRequestLocation.setOnClickListener(v -> requestLocationPermission());
-        btnRequestBluetooth.setOnClickListener(v -> requestBluetoothPermission());
-        btnAppSettings.setOnClickListener(v -> openAppSettings());
+        pendingStore = new PendingExecutionStore(this);
+        recordingStore = new ClickRecordingStore(this);
+        logStore = new ExecutionLogStore(this);
 
-        updatePermissionStatus();
+        findViewById(R.id.btn_open_accessibility_settings).setOnClickListener(
+                v -> openAccessibilitySettings());
+        requestLocation.setOnClickListener(v -> requestLocationPermission());
+        requestBluetooth.setOnClickListener(v -> requestBluetoothPermission());
+        findViewById(R.id.btn_app_settings).setOnClickListener(v -> openAppSettings());
+        findViewById(R.id.btn_stop_automation).setOnClickListener(v -> confirmStopAutomation());
+        findViewById(R.id.btn_clear_logs).setOnClickListener(v -> {
+            logStore.clear();
+            updateStatus();
+            Toast.makeText(this, "运行记录已清空", Toast.LENGTH_SHORT).show();
+        });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        updatePermissionStatus();
+        updateStatus();
     }
 
-    private void updatePermissionStatus() {
-        // 位置权限
-        boolean hasLocation = checkLocationPermission();
-        tvLocationStatus.setText(hasLocation ? "已授权 ✓" : "未授权");
-        btnRequestLocation.setEnabled(!hasLocation);
+    private void updateStatus() {
+        accessibilityStatus.setText(AccessibilityServiceState.isEnabled(this)
+                ? "自动点击服务：已开启 ✓" : "自动点击服务：未开启");
 
-        // 蓝牙权限
-        boolean hasBluetooth = checkBluetoothPermission();
-        tvBluetoothStatus.setText(hasBluetooth ? "已授权 ✓" : "未授权");
-        btnRequestBluetooth.setEnabled(!hasBluetooth);
+        boolean hasLocation = hasLocationPermission();
+        locationStatus.setText(hasLocation ? "已授权 ✓" : "未授权");
+        requestLocation.setEnabled(!hasLocation);
+
+        boolean hasBluetooth = hasBluetoothPermission();
+        bluetoothStatus.setText(hasBluetooth ? "已授权 ✓" : "未授权");
+        requestBluetooth.setEnabled(!hasBluetooth);
+
+        showPendingSessions(pendingStore.getAll());
+        showRecording(recordingStore.get());
+        showLogs(logStore.getAll());
     }
 
-    private boolean checkLocationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+    private void showPendingSessions(List<ExecutionSession> sessions) {
+        if (sessions.isEmpty()) {
+            pendingStatus.setText("没有待执行或失败的任务");
+            return;
+        }
+        StringBuilder text = new StringBuilder("共 ").append(sessions.size()).append(" 条\n");
+        for (int i = 0; i < sessions.size() && i < 5; i++) {
+            ExecutionSession session = sessions.get(i);
+            if (i > 0) text.append('\n');
+            text.append("• ").append(safe(session.getRuleName(), "未命名规则"))
+                    .append("：").append(statusName(session.getStatus()))
+                    .append("，动作 ").append(session.getCurrentActionIndex() + 1)
+                    .append('/').append(session.getActions().size());
+            if (session.getLastError() != null && !session.getLastError().trim().isEmpty()) {
+                text.append("（").append(session.getLastError()).append("）");
+            }
+        }
+        if (sessions.size() > 5) text.append("\n…另有 ").append(sessions.size() - 5).append(" 条");
+        pendingStatus.setText(text.toString());
+    }
+
+    private void showRecording(ClickRecordingStore.State state) {
+        switch (state.getStatus()) {
+            case ARMED:
+                long seconds = Math.max(0, (state.getExpiresAt() - System.currentTimeMillis()) / 1000);
+                recordingStatus.setText("正在等待下一次点击，约 " + seconds + " 秒后过期");
+                break;
+            case CAPTURED:
+                recordingStatus.setText("已捕获点击，返回编辑页即可使用");
+                break;
+            case REJECTED:
+            case EXPIRED:
+                recordingStatus.setText(safe(state.getRejectionReason(), "上次记录未完成"));
+                break;
+            default:
+                recordingStatus.setText("未在记录点击");
+        }
+    }
+
+    private void showLogs(List<ExecutionLogStore.Entry> entries) {
+        if (entries.isEmpty()) {
+            recentLogs.setText("暂无运行记录");
+            return;
+        }
+        SimpleDateFormat format = new SimpleDateFormat("MM-dd HH:mm:ss", Locale.CHINA);
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < entries.size() && i < 5; i++) {
+            ExecutionLogStore.Entry entry = entries.get(i);
+            if (i > 0) text.append('\n');
+            text.append(format.format(new Date(entry.getTimestamp())))
+                    .append(" · ").append(safe(entry.getRuleName(), "未命名规则"))
+                    .append(" · ").append(safe(entry.getMessage(), entry.getStatus()));
+        }
+        recentLogs.setText(text.toString());
+    }
+
+    private String statusName(ExecutionSession.Status status) {
+        if (status == null) return "等待";
+        switch (status) {
+            case RUNNING: return "执行中";
+            case WAITING: return "等待中";
+            case COMPLETED: return "已完成";
+            case FAILED: return "失败";
+            case CANCELLED: return "已取消";
+            default: return "待执行";
+        }
+    }
+
+    private String safe(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value.trim();
+    }
+
+    private boolean hasLocationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
+        return ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+                || ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean hasBluetoothPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
                     == PackageManager.PERMISSION_GRANTED;
         }
         return true;
     }
 
-    private boolean checkBluetoothPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-                    == PackageManager.PERMISSION_GRANTED;
-        } else {
-            return ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH)
-                    == PackageManager.PERMISSION_GRANTED;
-        }
-    }
-
     private void requestLocationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                    },
-                    REQUEST_CODE_LOCATION);
+            ActivityCompat.requestPermissions(this, new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            }, REQUEST_CODE_LOCATION);
         }
     }
 
     private void requestBluetoothPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.BLUETOOTH_CONNECT},
-                    REQUEST_CODE_BLUETOOTH);
-        } else {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.BLUETOOTH},
-                    REQUEST_CODE_BLUETOOTH);
+                    new String[]{Manifest.permission.BLUETOOTH_CONNECT}, REQUEST_CODE_BLUETOOTH);
+        }
+    }
+
+    private void openAccessibilitySettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "无法打开无障碍设置", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -107,9 +215,24 @@ public class PermissionGuideActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    private void confirmStopAutomation() {
+        new AlertDialog.Builder(this)
+                .setTitle("停止全部自动化？")
+                .setMessage("将删除所有待执行、等待中和失败的任务，并取消当前点击记录。已保存的规则不会删除。")
+                .setPositiveButton("停止并清空", (dialog, which) -> {
+                    pendingStore.clear();
+                    recordingStore.clear();
+                    updateStatus();
+                    Toast.makeText(this, "已停止全部待执行任务", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        updatePermissionStatus();
+        updateStatus();
     }
 }

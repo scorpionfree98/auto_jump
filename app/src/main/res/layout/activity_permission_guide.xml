@@ -2,121 +2,103 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="权限设置"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="权限与运行状态" android:textSize="22sp" android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="根据你使用的条件类型，需要授予相应权限："
-            android:textSize="14sp"
-            android:layout_marginBottom="16dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="所有权限均按功能选用。不开启自动点击服务时，普通 deeplink 和条件匹配仍可使用。" />
 
-        <!-- 位置权限 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="位置权限"
-            android:textStyle="bold"
-            android:textSize="16sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="自动点击服务"
+            android:textSize="17sp" android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="用途：WiFi 名称判断（Android 10+）、地理位置条件"
-            android:textSize="12sp"
-            android:textColor="#666666"
-            android:layout_marginTop="4dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textColor="#555555" android:textSize="13sp"
+            android:text="用途：执行你明确保存的延迟点击动作，以及在你点击“记录下一次点击”后记录一个目标控件。不会读取或记录密码、可编辑输入内容、系统权限界面、锁屏和桌面。可随时关闭。" />
 
-        <TextView
-            android:id="@+id/tv_location_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="未授权"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/tv_accessibility_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:text="自动点击服务：未开启" android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_request_location"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="授予位置权限"
-            android:layout_marginTop="8dp" />
+        <Button android:id="@+id/btn_open_accessibility_settings" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="打开无障碍设置" />
 
-        <!-- 蓝牙权限 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="蓝牙权限"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:layout_marginTop="16dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="当前任务"
+            android:textSize="17sp" android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="用途：蓝牙设备连接条件"
-            android:textSize="12sp"
-            android:textColor="#666666"
-            android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/tv_pending_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="6dp"
+            android:text="没有待执行任务" />
 
-        <TextView
-            android:id="@+id/tv_bluetooth_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="未授权"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/tv_recording_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="6dp"
+            android:text="未在记录点击" android:textColor="#555555" />
 
-        <Button
-            android:id="@+id/btn_request_bluetooth"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="授予蓝牙权限"
-            android:layout_marginTop="8dp" />
+        <Button android:id="@+id/btn_stop_automation" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:text="停止并清空待执行任务" />
 
-        <!-- 后台运行 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="后台运行权限"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:layout_marginTop="16dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="最近运行记录"
+            android:textSize="17sp" android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="请在系统设置中允许本应用后台运行、自启动、后台弹出界面。HyperOS 可能需要关闭「省电模式」。"
-            android:textSize="12sp"
-            android:textColor="#666666"
-            android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/tv_recent_logs" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="6dp"
+            android:text="暂无运行记录" android:textColor="#555555" android:textSize="13sp" />
 
-        <Button
-            android:id="@+id/btn_app_settings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="打开应用设置"
-            android:layout_marginTop="8dp" />
+        <Button android:id="@+id/btn_clear_logs" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:text="清空运行记录" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="注意：后台定位（地理位置条件）属于敏感权限，建议仅在必要时使用。"
-            android:textSize="12sp"
-            android:textColor="#FF6666"
-            android:layout_marginTop="16dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="位置权限"
+            android:textSize="17sp" android:textStyle="bold" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textColor="#555555" android:textSize="13sp"
+            android:text="用途：判断 WiFi 名称及地理位置条件。仅在匹配规则时读取当前或最近位置。" />
+
+        <TextView android:id="@+id/tv_location_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="未授权" />
+
+        <Button android:id="@+id/btn_request_location" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="授予位置权限" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="附近设备权限"
+            android:textSize="17sp" android:textStyle="bold" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:text="用途：判断已配对蓝牙设备是否存在。"
+            android:textColor="#555555" android:textSize="13sp" />
+
+        <TextView android:id="@+id/tv_bluetooth_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="未授权" />
+
+        <Button android:id="@+id/btn_request_bluetooth" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="授予附近设备权限" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="系统后台设置"
+            android:textSize="17sp" android:textStyle="bold" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textColor="#555555" android:textSize="13sp"
+            android:text="HyperOS 可能需要按你的使用方式允许自启动或后台运行。无需地理位置规则时，不需要额外后台定位权限。" />
+
+        <Button android:id="@+id/btn_app_settings" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="打开应用设置" />
+
+        <Space android:layout_width="match_parent" android:layout_height="24dp" />
     </LinearLayout>
 </ScrollView>

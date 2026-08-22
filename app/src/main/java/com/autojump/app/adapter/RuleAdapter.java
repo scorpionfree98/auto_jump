@@ -22,7 +22,7 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
     public interface OnRuleOperateListener {
         void onEdit(Rule rule);
         void onDelete(Rule rule);
-        void onToggleEnabled(Rule rule);
+        void onToggleEnabled(Rule rule, boolean enabled);
     }
 
     public RuleAdapter(Context context, List<Rule> list, OnRuleOperateListener listener) {
@@ -58,12 +58,13 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
 
         // 显示动作数量
         int actionCount = rule.getActions() != null ? rule.getActions().size() : 0;
-        holder.tvActions.setText("动作: " + actionCount + " 个跳转");
+        holder.tvActions.setText("动作: " + actionCount + " 个（按顺序执行）");
 
         // 启用/禁用状态
+        holder.switchEnabled.setOnCheckedChangeListener(null);
         holder.switchEnabled.setChecked(rule.isEnabled());
         holder.switchEnabled.setOnCheckedChangeListener((btn, checked) -> {
-            if (mListener != null) mListener.onToggleEnabled(rule);
+            if (mListener != null) mListener.onToggleEnabled(rule, checked);
         });
 
         // 禁用状态显示灰色

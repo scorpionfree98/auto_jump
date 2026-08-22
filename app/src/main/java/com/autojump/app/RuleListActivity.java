@@ -100,15 +100,14 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
     }
 
     @Override
-    public void onToggleEnabled(Rule rule) {
-        rule.setEnabled(!rule.isEnabled());
+    public void onToggleEnabled(Rule rule, boolean enabled) {
+        rule.setEnabled(enabled);
         SPUtil.saveRuleList(this, mRuleList);
-        mAdapter.notifyDataSetChanged();
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, 1, 0, "权限设置");
+        menu.add(0, 1, 0, "权限与运行状态");
         menu.add(0, 2, 0, "导出规则");
         menu.add(0, 3, 0, "导入规则");
         menu.add(0, 4, 0, "关于");
@@ -136,7 +135,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
     private void showAbout() {
         new AlertDialog.Builder(this)
                 .setTitle("关于")
-                .setMessage("一键跳转 v1.0\n\n基于条件自动执行 deeplink 跳转。\n\n建议：在 HyperOS 自动任务中设置每 15 分钟启动本应用，实现自动化跳转。")
+                .setMessage("一键跳转 v1.0\n\n按条件执行 deeplink、等待和你明确保存的点击动作。自动点击服务可随时关闭，待执行任务也可在“权限与运行状态”中清空。\n\n建议：在 HyperOS 自动任务中按需启动本应用。")
                 .setPositiveButton("确定", null)
                 .show();
     }
