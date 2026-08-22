@@ -29,23 +29,43 @@ image_name="$2"
 shift 2
 
 cd "$remote_dir"
-set +e
-docker run --rm --network=host \
-    -v "$remote_dir":/workspace \
-    -v autojump-gradle-cache:/root/.gradle \
-    -w /workspace \
-    "$image_name" \
-    ./gradlew "$@" --no-daemon
-build_status=$?
-set -e
+
+# 服务器维护时 Docker 套接字可能短暂重置。只重试 Docker 自身的 125 错误；
+# Gradle 编译或测试失败保持原始状态，不做可能掩盖问题的重试。
+build_status=125
+for attempt in 1 2 3; do
+    set +e
+    docker run --rm --network=host \
+        -v "$remote_dir":/workspace \
+        -v autojump-gradle-cache:/root/.gradle \
+        -w /workspace \
+        "$image_name" \
+        ./gradlew "$@" --no-daemon
+    build_status=$?
+    set -e
+    if [[ "$build_status" -ne 125 ]]; then
+        break
+    fi
+    echo "Docker 暂时不可用，第 $attempt 次启动失败，等待后重试..." >&2
+    sleep 3
+done
 
 # 容器以 root 写入挂载目录；恢复所有权，保证下一次 rsync 可以更新源码。
 host_uid="$(id -u)"
 host_gid="$(id -g)"
-docker run --rm \
-    -v "$remote_dir":/workspace \
-    "$image_name" \
-    chown -R "$host_uid:$host_gid" /workspace
+for attempt in 1 2 3; do
+    if docker run --rm \
+        -v "$remote_dir":/workspace \
+        "$image_name" \
+        chown -R "$host_uid:$host_gid" /workspace; then
+        break
+    fi
+    if [[ "$attempt" -eq 3 ]]; then
+        echo "警告：构建目录所有权恢复失败，下次同步前需要处理。" >&2
+    else
+        sleep 3
+    fi
+done
 
 exit "$build_status"
 REMOTE_SCRIPT

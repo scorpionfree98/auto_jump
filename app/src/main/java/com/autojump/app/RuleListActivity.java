@@ -135,7 +135,9 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
     private void showAbout() {
         new AlertDialog.Builder(this)
                 .setTitle("关于")
-                .setMessage("一键跳转 v1.0\n\n按条件执行 deeplink、等待和你明确保存的点击动作。自动点击服务可随时关闭，待执行任务也可在“权限与运行状态”中清空。\n\n建议：在 HyperOS 自动任务中按需启动本应用。")
+                .setMessage("一键跳转 v" + BuildConfig.VERSION_NAME
+                        + "\n\n按条件执行 deeplink、等待和你明确保存的点击动作。自动点击服务可随时关闭，待执行任务也可在“权限与运行状态”中清空。"
+                        + "\n\n建议：在 HyperOS 自动任务中按需启动本应用。")
                 .setPositiveButton("确定", null)
                 .show();
     }
