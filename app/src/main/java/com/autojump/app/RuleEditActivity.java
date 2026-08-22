@@ -14,6 +14,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.autojump.app.bean.Rule;
 import com.autojump.app.condition.*;
+import com.autojump.app.domain.RuleAction;
+import com.autojump.app.domain.RuleCondition;
 import com.autojump.app.util.SPUtil;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,7 +83,7 @@ public class RuleEditActivity extends AppCompatActivity {
         llConditions.removeAllViews();
         for (int i = 0; i < mRule.getConditions().size(); i++) {
             final int index = i;
-            Rule.Condition condition = mRule.getConditions().get(i);
+            RuleCondition condition = mRule.getConditions().get(i);
 
             View itemView = LayoutInflater.from(this).inflate(R.layout.item_condition, llConditions, false);
             TextView tvDesc = itemView.findViewById(R.id.tv_condition_desc);
@@ -101,13 +103,13 @@ public class RuleEditActivity extends AppCompatActivity {
         llActions.removeAllViews();
         for (int i = 0; i < mRule.getActions().size(); i++) {
             final int index = i;
-            String action = mRule.getActions().get(i);
+            RuleAction action = mRule.getActions().get(i);
 
             View itemView = LayoutInflater.from(this).inflate(R.layout.item_action, llActions, false);
             TextView tvAction = itemView.findViewById(R.id.tv_action);
             Button btnRemove = itemView.findViewById(R.id.btn_remove_action);
 
-            tvAction.setText(action);
+            tvAction.setText(action.getDescription());
             btnRemove.setOnClickListener(v -> {
                 mRule.getActions().remove(index);
                 refreshActionList();
@@ -317,7 +319,7 @@ public class RuleEditActivity extends AppCompatActivity {
                 .setPositiveButton("添加", (d, w) -> {
                     String link = et.getText().toString().trim();
                     if (!link.isEmpty()) {
-                        mRule.getActions().add(link);
+                        mRule.getActions().add(RuleAction.deeplink(link));
                         refreshActionList();
                     }
                 })

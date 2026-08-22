@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.autojump.app.adapter.RuleAdapter;
 import com.autojump.app.bean.Rule;
+import com.autojump.app.data.RuleRepository;
 import com.autojump.app.util.SPUtil;
 import java.util.List;
 
@@ -148,8 +149,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                 return;
             }
 
-            com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
-            String json = gson.toJson(rules);
+            String json = new RuleRepository(this).exportRules(rules);
 
             // 保存到外部存储（Documents 目录）
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
@@ -163,7 +163,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                 if (uri != null) {
                     java.io.OutputStream os = getContentResolver().openOutputStream(uri);
                     if (os != null) {
-                        os.write(json.getBytes());
+                        os.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                         os.close();
                         Toast.makeText(this, "已导出到 Documents 目录", Toast.LENGTH_LONG).show();
                     }
@@ -174,7 +174,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                 if (!dir.exists()) dir.mkdirs();
                 java.io.File file = new java.io.File(dir, "autojump_rules_" + System.currentTimeMillis() + ".json");
                 java.io.FileOutputStream fos = new java.io.FileOutputStream(file);
-                fos.write(json.getBytes());
+                fos.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 fos.close();
                 Toast.makeText(this, "已导出到: " + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
             }
@@ -210,7 +210,8 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                 try {
                     java.io.InputStream is = getContentResolver().openInputStream(uri);
                     if (is != null) {
-                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is));
+                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(
+                                is, java.nio.charset.StandardCharsets.UTF_8));
                         StringBuilder sb = new StringBuilder();
                         String line;
                         while ((line = reader.readLine()) != null) {
@@ -219,9 +220,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                         reader.close();
 
                         String json = sb.toString();
-                        com.google.gson.Gson gson = new com.google.gson.Gson();
-                        java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<List<Rule>>() {}.getType();
-                        List<Rule> importedRules = gson.fromJson(json, type);
+                        List<Rule> importedRules = new RuleRepository(this).importRules(json);
 
                         if (importedRules != null && !importedRules.isEmpty()) {
                             new AlertDialog.Builder(this)

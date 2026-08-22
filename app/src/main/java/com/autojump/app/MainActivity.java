@@ -34,24 +34,34 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // 桌面/动态快捷方式明确指定的链接优先，不进入规则引擎。
+        if (intent != null) {
+            String targetDeepLink = intent.getStringExtra("target_deep_link");
+            if (targetDeepLink != null && !targetDeepLink.trim().isEmpty()) {
+                openDeepLink(targetDeepLink);
+                finish();
+                return;
+            }
+        }
+
         // 执行规则引擎匹配
         Log.d(TAG, "开始执行规则匹配...");
         try {
-            int matchedCount = RuleEngine.executeRules(this);
+            RuleEngine.ExecutionSummary summary = RuleEngine.execute(this);
+            int matchedCount = summary.getMatchedRuleCount();
 
-            if (matchedCount == 0) {
-                // 无规则匹配时，使用默认跳转（向后兼容）
+            if (summary.getEnabledRuleCount() == 0) {
+                // 只有完全没有启用规则时才使用默认跳转。
                 String defaultLink = SPUtil.getDefaultLink(this);
                 if (defaultLink != null && !defaultLink.isEmpty()) {
-                    Log.d(TAG, "无规则匹配，使用默认跳转");
-                    Intent jump = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(defaultLink));
-                    jump.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(jump);
+                    Log.d(TAG, "没有启用规则，使用默认跳转");
+                    openDeepLink(defaultLink);
                 } else {
-                    Log.d(TAG, "无规则匹配，且无默认跳转，静默退出");
-                    // 给用户一个提示，引导去配置
+                    Log.d(TAG, "没有启用规则，且无默认跳转，静默退出");
                     Toast.makeText(this, "未匹配任何规则，请长按图标进入设置", Toast.LENGTH_SHORT).show();
                 }
+            } else if (matchedCount == 0) {
+                Log.d(TAG, "当前条件未匹配任何已启用规则，静默退出");
             } else {
                 Log.d(TAG, "匹配 " + matchedCount + " 条规则");
             }
@@ -61,5 +71,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         finish();
+    }
+
+    private void openDeepLink(String deepLink) {
+        Intent jump = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(deepLink));
+        jump.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(jump);
     }
 }

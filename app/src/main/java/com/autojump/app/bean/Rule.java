@@ -1,6 +1,8 @@
 package com.autojump.app.bean;
 
 import java.io.Serializable;
+import com.autojump.app.domain.RuleAction;
+import com.autojump.app.domain.RuleCondition;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,8 +14,12 @@ public class Rule implements Serializable {
     private String name;            // 规则名称
     private int priority;           // 优先级（数字越大越优先）
     private boolean enabled;        // 是否启用
-    private List<Condition> conditions;  // 条件列表（AND 关系）
-    private List<String> actions;   // 动作列表（deeplink）
+    private List<RuleCondition> conditions;  // 条件列表（AND 关系）
+    private List<RuleAction> actions;   // 按顺序执行的动作列表
+
+    public Rule() {
+        this("", "");
+    }
 
     public Rule(String id, String name) {
         this.id = id;
@@ -36,17 +42,19 @@ public class Rule implements Serializable {
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    public List<Condition> getConditions() { return conditions; }
-    public void setConditions(List<Condition> conditions) { this.conditions = conditions; }
+    public List<RuleCondition> getConditions() {
+        if (conditions == null) conditions = new ArrayList<>();
+        return conditions;
+    }
+    public void setConditions(List<RuleCondition> conditions) {
+        this.conditions = conditions == null ? new ArrayList<>() : conditions;
+    }
 
-    public List<String> getActions() { return actions; }
-    public void setActions(List<String> actions) { this.actions = actions; }
-
-    /**
-     * 条件基类
-     */
-    public static abstract class Condition implements Serializable {
-        public abstract boolean match(android.content.Context context);  // 子类实现具体匹配逻辑
-        public abstract String getDescription();  // 用于界面显示
+    public List<RuleAction> getActions() {
+        if (actions == null) actions = new ArrayList<>();
+        return actions;
+    }
+    public void setActions(List<RuleAction> actions) {
+        this.actions = actions == null ? new ArrayList<>() : actions;
     }
 }
