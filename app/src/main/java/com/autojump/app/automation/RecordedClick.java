@@ -8,13 +8,14 @@ public class RecordedClick {
     private String contentDescription;
     private double relativeX;
     private double relativeY;
+    private long delayBeforeMs;
     private long capturedAt;
 
     public RecordedClick() {}
 
     public RecordedClick(String requestId, String targetPackage, String viewId, String text,
                          String contentDescription, double relativeX, double relativeY,
-                         long capturedAt) {
+                         long delayBeforeMs, long capturedAt) {
         this.requestId = requestId;
         this.targetPackage = targetPackage;
         this.viewId = viewId;
@@ -22,6 +23,7 @@ public class RecordedClick {
         this.contentDescription = contentDescription;
         this.relativeX = relativeX;
         this.relativeY = relativeY;
+        this.delayBeforeMs = delayBeforeMs;
         this.capturedAt = capturedAt;
     }
 
@@ -32,5 +34,6 @@ public class RecordedClick {
     public String getContentDescription() { return contentDescription; }
     public double getRelativeX() { return relativeX; }
     public double getRelativeY() { return relativeY; }
+    public long getDelayBeforeMs() { return delayBeforeMs; }
     public long getCapturedAt() { return capturedAt; }
 }

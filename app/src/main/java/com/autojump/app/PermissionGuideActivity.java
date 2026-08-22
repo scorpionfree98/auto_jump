@@ -214,9 +214,12 @@ public class PermissionGuideActivity extends AppCompatActivity {
 
     private void showRecording(ClickRecordingStore.State state) {
         switch (state.getStatus()) {
+            case WAITING_START:
+                recordingStatus.setText("已打开目标应用，等待点击悬浮窗开始录制");
+                break;
             case ARMED:
                 long seconds = Math.max(0, (state.getExpiresAt() - System.currentTimeMillis()) / 1000);
-                recordingStatus.setText("正在等待下一次点击，约 " + seconds + " 秒后过期");
+                recordingStatus.setText("录制已开始，正在等待目标点击，约 " + seconds + " 秒后过期");
                 break;
             case CAPTURED:
                 recordingStatus.setText("已捕获点击，返回编辑页即可使用");

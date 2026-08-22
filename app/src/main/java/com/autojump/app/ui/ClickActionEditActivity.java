@@ -3,6 +3,7 @@ package com.autojump.app.ui;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -17,12 +18,14 @@ import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.automation.ClickRecordingStore;
 import com.autojump.app.automation.RecordedClick;
 import com.autojump.app.domain.RuleAction;
+import com.autojump.app.util.SPUtil;
 import com.google.gson.Gson;
 import java.util.UUID;
 
 /** Edits a single guarded accessibility click action. */
 public class ClickActionEditActivity extends AppCompatActivity {
     public static final String EXTRA_ACTION_JSON = "action_json";
+    public static final String EXTRA_RECORDING_DEEPLINK = "recording_deeplink";
     public static final String EXTRA_RESULT_ACTION_JSON = "result_action_json";
     private static final String STATE_REQUEST_ID = "record_request_id";
     private static final String STATE_DRAFT_ID = "draft_action_id";
@@ -36,6 +39,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private EditText contentDescription;
     private EditText relativeX;
     private EditText relativeY;
+    private EditText recordingDeeplink;
     private SwitchCompat continueOnFailure;
     private TextView serviceStatus;
 
@@ -59,6 +63,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         contentDescription = findViewById(R.id.et_target_description);
         relativeX = findViewById(R.id.et_relative_x);
         relativeY = findViewById(R.id.et_relative_y);
+        recordingDeeplink = findViewById(R.id.et_recording_deeplink);
         continueOnFailure = findViewById(R.id.switch_continue_on_failure);
         serviceStatus = findViewById(R.id.tv_service_status);
         Button openSettings = findViewById(R.id.btn_open_accessibility_settings);
@@ -71,6 +76,9 @@ public class ClickActionEditActivity extends AppCompatActivity {
         requestId = savedInstanceState == null ? null : savedInstanceState.getString(STATE_REQUEST_ID);
 
         if (savedInstanceState == null) {
+            String suggestedDeeplink = getIntent().getStringExtra(EXTRA_RECORDING_DEEPLINK);
+            recordingDeeplink.setText(TextUtils.isEmpty(suggestedDeeplink)
+                    ? SPUtil.getDefaultLink(this) : suggestedDeeplink);
             String json = getIntent().getStringExtra(EXTRA_ACTION_JSON);
             if (!TextUtils.isEmpty(json)) {
                 try {
@@ -82,7 +90,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         }
 
         openSettings.setOnClickListener(v -> openAccessibilitySettings());
-        record.setOnClickListener(v -> confirmAndArmRecording());
+        record.setOnClickListener(v -> confirmAndPrepareRecording());
         save.setOnClickListener(v -> saveAction());
     }
 
@@ -117,7 +125,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         }
     }
 
-    private void confirmAndArmRecording() {
+    private void confirmAndPrepareRecording() {
         if (!isAccessibilityServiceEnabled()) {
             new AlertDialog.Builder(this)
                     .setTitle("需要开启自动点击服务")
@@ -127,30 +135,30 @@ public class ClickActionEditActivity extends AppCompatActivity {
                     .show();
             return;
         }
+        String deeplink = text(recordingDeeplink);
+        if (deeplink == null || Uri.parse(deeplink).getScheme() == null) {
+            Toast.makeText(this, "请输入有效的录制跳转链接", Toast.LENGTH_LONG).show();
+            return;
+        }
         new AlertDialog.Builder(this)
-                .setTitle("记录下一次点击")
-                .setMessage("接下来 5 分钟内，你在目标应用中的下一次普通点击会被记录为控件特征和相对坐标。密码框、输入内容、系统界面和桌面不会记录。")
-                .setPositiveButton("开始记录", (dialog, which) -> armRecording())
+                .setTitle("前往目标应用录制")
+                .setMessage("应用会先打开上面的跳转链接。进入目标页面后，请点悬浮窗的“开始录制”，再点击目标控件；两次点击之间的时间会自动保存为延迟。测试和正式执行时不会显示悬浮窗。")
+                .setPositiveButton("打开并准备", (dialog, which) -> prepareRecording(deeplink))
                 .setNegativeButton("取消", null)
                 .show();
     }
 
-    private void armRecording() {
-        ClickRecordingStore.State state = recordingStore.arm(draftActionId, System.currentTimeMillis());
+    private void prepareRecording(String deeplink) {
+        ClickRecordingStore.State state = recordingStore.prepare(
+                draftActionId, deeplink, System.currentTimeMillis());
         requestId = state.getRequestId();
-        Toast.makeText(this, "已开始记录，请点击目标控件", Toast.LENGTH_LONG).show();
-
-        String packageName = text(targetPackage);
-        if (packageName == null) return;
-        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(packageName);
-        if (launchIntent == null) {
-            Toast.makeText(this, "未找到目标应用，请手动切换后点击", Toast.LENGTH_LONG).show();
-            return;
-        }
+        Intent launchIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(deeplink));
         try {
             startActivity(launchIntent);
         } catch (RuntimeException error) {
-            Toast.makeText(this, "无法打开目标应用，请手动切换", Toast.LENGTH_LONG).show();
+            recordingStore.reject(requestId, ClickRecordingStore.Status.REJECTED,
+                    "无法打开录制跳转链接");
+            applyRecordingResultIfAvailable();
         }
     }
 
@@ -184,6 +192,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         setText(contentDescription, click.getContentDescription());
         relativeX.setText(String.valueOf(click.getRelativeX()));
         relativeY.setText(String.valueOf(click.getRelativeY()));
+        delay.setText(String.valueOf(click.getDelayBeforeMs()));
     }
 
     private void populate(RuleAction action) {

@@ -6,14 +6,17 @@ import com.google.gson.Gson;
 import java.util.UUID;
 
 public class ClickRecordingStore {
-    public enum Status { IDLE, ARMED, CAPTURED, EXPIRED, REJECTED }
+    public enum Status { IDLE, WAITING_START, ARMED, CAPTURED, EXPIRED, REJECTED }
 
     public static class State {
         private Status status = Status.IDLE;
         private String requestId;
         private String draftActionId;
         private long createdAt;
+        private long startedAt;
         private long expiresAt;
+        private String deeplink;
+        private String targetPackage;
         private RecordedClick recordedClick;
         private String rejectionReason;
 
@@ -21,7 +24,10 @@ public class ClickRecordingStore {
         public String getRequestId() { return requestId; }
         public String getDraftActionId() { return draftActionId; }
         public long getCreatedAt() { return createdAt; }
+        public long getStartedAt() { return startedAt; }
         public long getExpiresAt() { return expiresAt; }
+        public String getDeeplink() { return deeplink; }
+        public String getTargetPackage() { return targetPackage; }
         public RecordedClick getRecordedClick() { return recordedClick; }
         public String getRejectionReason() { return rejectionReason; }
     }
@@ -37,13 +43,42 @@ public class ClickRecordingStore {
         preferences = context.getApplicationContext().getSharedPreferences(SP_NAME, Context.MODE_PRIVATE);
     }
 
-    public State arm(String draftActionId, long now) {
+    public State prepare(String draftActionId, String deeplink, long now) {
         synchronized (LOCK) {
             State state = new State();
-            state.status = Status.ARMED;
+            state.status = Status.WAITING_START;
             state.requestId = UUID.randomUUID().toString();
             state.draftActionId = draftActionId;
             state.createdAt = now;
+            state.deeplink = deeplink;
+            state.expiresAt = now + DEFAULT_TTL_MS;
+            save(state);
+            return state;
+        }
+    }
+
+    public State bindTargetPackage(String requestId, String targetPackage) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.WAITING_START || requestId == null
+                    || !requestId.equals(state.getRequestId())) return state;
+            if (state.targetPackage == null || state.targetPackage.trim().isEmpty()) {
+                state.targetPackage = targetPackage;
+                save(state);
+            }
+            return state;
+        }
+    }
+
+    public State start(String requestId, String targetPackage, long now) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.WAITING_START || requestId == null
+                    || !requestId.equals(state.getRequestId())
+                    || state.getTargetPackage() == null
+                    || !state.getTargetPackage().equals(targetPackage)) return state;
+            state.status = Status.ARMED;
+            state.startedAt = now;
             state.expiresAt = now + DEFAULT_TTL_MS;
             save(state);
             return state;
@@ -73,7 +108,8 @@ public class ClickRecordingStore {
     public void reject(String requestId, Status status, String reason) {
         synchronized (LOCK) {
             State state = get();
-            if (state.getStatus() != Status.ARMED || requestId == null
+            if ((state.getStatus() != Status.ARMED
+                    && state.getStatus() != Status.WAITING_START) || requestId == null
                     || !requestId.equals(state.getRequestId())) return;
             state.status = status == Status.EXPIRED ? Status.EXPIRED : Status.REJECTED;
             state.rejectionReason = reason;

@@ -66,6 +66,10 @@ public class ConditionEvaluator {
     }
 
     private boolean matchesBluetooth(Context context, RuleCondition condition) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && ActivityCompat.checkSelfPermission(
+                context, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) return false;
         BluetoothAdapter adapter;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             BluetoothManager manager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);

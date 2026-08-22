@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import com.autojump.app.bean.Rule;
+import com.autojump.app.automation.RecordingDeeplinkResolver;
 import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.domain.RuleCondition;
@@ -48,6 +49,8 @@ public class RuleEditActivity extends AppCompatActivity {
     private boolean isEdit;
     private int pendingActionIndex = -1;
     private final Gson gson = new Gson();
+    private final RecordingDeeplinkResolver recordingDeeplinkResolver =
+            new RecordingDeeplinkResolver();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -354,11 +357,18 @@ public class RuleEditActivity extends AppCompatActivity {
     private void launchClickEditor(int index) {
         pendingActionIndex = index;
         Intent intent = new Intent(this, ClickActionEditActivity.class);
+        intent.putExtra(ClickActionEditActivity.EXTRA_RECORDING_DEEPLINK,
+                recordingDeeplinkBefore(index));
         if (index >= 0) {
             intent.putExtra(ClickActionEditActivity.EXTRA_ACTION_JSON,
                     gson.toJson(rule.getActions().get(index)));
         }
         startActivityForResult(intent, REQUEST_CLICK_ACTION);
+    }
+
+    private String recordingDeeplinkBefore(int index) {
+        return recordingDeeplinkResolver.resolve(
+                rule.getActions(), index, SPUtil.getDefaultLink(this));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.autojump.app.automation;
 
+import android.annotation.TargetApi;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.app.KeyguardManager;
@@ -14,8 +15,10 @@ import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Toast;
 import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
+import com.autojump.app.ui.ClickActionEditActivity;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +34,15 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private AutomationOrchestrator orchestrator;
     private ExecutionLogStore logs;
     private ClickRecordingStore recordingStore;
+    private RecordingOverlayController recordingOverlay;
+    private Runnable recordingExpiry;
     private String foregroundPackage;
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         ensureStores();
+        updateRecordingOverlay();
         processAllSessions();
     }
 
@@ -46,17 +52,20 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             foregroundPackage = event.getPackageName().toString();
         }
         ensureStores();
+        updateRecordingOverlay();
         captureRecordedClick(event);
         processAllSessions();
     }
 
     @Override
     public void onInterrupt() {
+        hideRecordingOverlay();
         cancelAllCallbacks();
     }
 
     @Override
     public void onDestroy() {
+        hideRecordingOverlay();
         cancelAllCallbacks();
         super.onDestroy();
     }
@@ -66,6 +75,104 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         if (orchestrator == null) orchestrator = new AutomationOrchestrator(this);
         if (logs == null) logs = new ExecutionLogStore(this);
         if (recordingStore == null) recordingStore = new ClickRecordingStore(this);
+        if (recordingOverlay == null) recordingOverlay = new RecordingOverlayController(this);
+    }
+
+    private void updateRecordingOverlay() {
+        ClickRecordingStore.State state = recordingStore.get();
+        if (state.getStatus() == ClickRecordingStore.Status.WAITING_START) {
+            ClickRecordingPolicy.StartDecision decision = recordingPolicy.evaluateStart(
+                    state, foregroundPackage, getPackageName(),
+                    isLauncherPackage(foregroundPackage), System.currentTimeMillis());
+            if (decision == ClickRecordingPolicy.StartDecision.EXPIRED) {
+                recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.EXPIRED,
+                        "录制请求已过期");
+                hideRecordingOverlay();
+                return;
+            }
+            scheduleRecordingExpiry(state);
+            if (decision != ClickRecordingPolicy.StartDecision.ELIGIBLE) {
+                if (recordingOverlay != null && state.getTargetPackage() != null
+                        && !state.getTargetPackage().equals(foregroundPackage)) {
+                    recordingOverlay.hide();
+                }
+                return;
+            }
+            if (state.getTargetPackage() == null) {
+                state = recordingStore.bindTargetPackage(
+                        state.getRequestId(), foregroundPackage);
+            }
+            showRecordingOverlay(state);
+            return;
+        }
+        if (state.getStatus() == ClickRecordingStore.Status.ARMED) {
+            if (recordingOverlay != null) recordingOverlay.hide();
+            scheduleRecordingExpiry(state);
+            return;
+        }
+        hideRecordingOverlay();
+    }
+
+    private void showRecordingOverlay(ClickRecordingStore.State state) {
+        if (recordingOverlay == null || !recordingOverlay.isSupported()) {
+            recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.REJECTED,
+                    "当前系统不支持录制悬浮窗");
+            hideRecordingOverlay();
+            return;
+        }
+        try {
+            recordingOverlay.show(state.getRequestId(), state.getTargetPackage(),
+                    new RecordingOverlayController.Listener() {
+                        @Override public void onStart(String requestId, String targetPackage) {
+                            ClickRecordingStore.State started = recordingStore.start(
+                                    requestId, targetPackage, System.currentTimeMillis());
+                            updateRecordingOverlay();
+                            if (started.getStatus() == ClickRecordingStore.Status.ARMED) {
+                                Toast.makeText(AutoJumpAccessibilityService.this,
+                                        "录制已开始，请点击目标控件", Toast.LENGTH_LONG).show();
+                            }
+                        }
+
+                        @Override public void onCancel(String requestId) {
+                            recordingStore.reject(requestId, ClickRecordingStore.Status.REJECTED,
+                                    "用户取消了点击录制");
+                            updateRecordingOverlay();
+                            Toast.makeText(AutoJumpAccessibilityService.this,
+                                    "已取消点击录制", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        } catch (RuntimeException error) {
+            recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.REJECTED,
+                    "无法显示录制悬浮窗");
+            hideRecordingOverlay();
+        }
+    }
+
+    private void scheduleRecordingExpiry(ClickRecordingStore.State state) {
+        cancelRecordingExpiry();
+        long delay = Math.max(1, state.getExpiresAt() - System.currentTimeMillis());
+        String requestId = state.getRequestId();
+        recordingExpiry = () -> {
+            ClickRecordingStore.State fresh = recordingStore.get();
+            if (requestId != null && requestId.equals(fresh.getRequestId())
+                    && (fresh.getStatus() == ClickRecordingStore.Status.WAITING_START
+                    || fresh.getStatus() == ClickRecordingStore.Status.ARMED)) {
+                recordingStore.reject(requestId, ClickRecordingStore.Status.EXPIRED,
+                        "录制请求已过期");
+            }
+            updateRecordingOverlay();
+        };
+        handler.postDelayed(recordingExpiry, delay);
+    }
+
+    private void hideRecordingOverlay() {
+        if (recordingOverlay != null) recordingOverlay.hide();
+        cancelRecordingExpiry();
+    }
+
+    private void cancelRecordingExpiry() {
+        if (recordingExpiry != null) handler.removeCallbacks(recordingExpiry);
+        recordingExpiry = null;
     }
 
     private void processAllSessions() {
@@ -159,6 +266,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         else fail(store.findById(session.getId()), "控件拒绝点击动作", System.currentTimeMillis());
     }
 
+    @TargetApi(Build.VERSION_CODES.N)
     private void clickCoordinate(ExecutionSession session, RuleAction action, long now) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             fail(session, "Android 7.0 以下不支持坐标手势", now);
@@ -236,6 +344,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private void cancelAllCallbacks() {
         for (Runnable callback : scheduled.values()) handler.removeCallbacks(callback);
         scheduled.clear();
+        cancelRecordingExpiry();
     }
 
     private boolean isKeyguardLocked() {
@@ -262,10 +371,12 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         ClickRecordingStore.State state = recordingStore.get();
         if (state.getStatus() != ClickRecordingStore.Status.ARMED) return;
         String packageName = event.getPackageName() == null ? null : event.getPackageName().toString();
+        if (getPackageName().equals(packageName)) return;
         AccessibilityNodeInfo source = event.getSource();
+        long now = System.currentTimeMillis();
         ClickRecordingPolicy.Decision decision = recordingPolicy.evaluate(state, packageName,
                 source != null && source.isPassword(), isLauncherPackage(packageName),
-                System.currentTimeMillis());
+                now);
         if (decision == ClickRecordingPolicy.Decision.INACTIVE) return;
         if (decision == ClickRecordingPolicy.Decision.EXPIRED) {
             recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.EXPIRED,
@@ -297,7 +408,23 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         String description = recordingPolicy.safeShortText(source.getContentDescription(), false);
         recordingStore.capture(new RecordedClick(state.getRequestId(), packageName,
                 source.getViewIdResourceName(), text, description, relativeX, relativeY,
-                System.currentTimeMillis()));
+                recordingPolicy.elapsedSinceStart(state, now), now));
+        if (recordingStore.get().getStatus() == ClickRecordingStore.Status.CAPTURED) {
+            updateRecordingOverlay();
+            returnToClickEditor();
+        }
+    }
+
+    private void returnToClickEditor() {
+        Intent intent = new Intent(this, ClickActionEditActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        try {
+            startActivity(intent);
+        } catch (RuntimeException ignored) {
+            // The captured result remains available when the user returns manually.
+        }
     }
 
     private boolean isLauncherPackage(String packageName) {

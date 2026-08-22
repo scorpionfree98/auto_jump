@@ -13,6 +13,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /** Encodes schema v3 and tolerantly migrates older rule documents and arrays. */
@@ -139,7 +140,7 @@ public class RuleJsonCodec {
     private ConditionType inferConditionType(JsonObject object) {
         String rawType = nullableString(object, "type");
         if (rawType != null) {
-            String normalized = rawType.replace("Condition", "").toUpperCase();
+            String normalized = rawType.replace("Condition", "").toUpperCase(Locale.ROOT);
             try { return ConditionType.valueOf(normalized); } catch (IllegalArgumentException ignored) {}
         }
         if (object.has("daysOfWeek") || object.has("startHour")) return ConditionType.TIME;
@@ -172,7 +173,7 @@ public class RuleJsonCodec {
     }
 
     private static <T extends Enum<T>> T enumValue(Class<T> type, String value) {
-        return Enum.valueOf(type, value.toUpperCase());
+        return Enum.valueOf(type, value.toUpperCase(Locale.ROOT));
     }
 
     private static String stringValue(JsonObject object, String key, String fallback) {
