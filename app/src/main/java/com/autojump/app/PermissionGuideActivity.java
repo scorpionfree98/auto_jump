@@ -7,14 +7,19 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import com.autojump.app.automation.AccessibilityClickSelfTest;
 import com.autojump.app.automation.AccessibilityServiceState;
+import com.autojump.app.automation.AutomationOrchestrator;
 import com.autojump.app.automation.ClickRecordingStore;
 import com.autojump.app.automation.ExecutionLogStore;
 import com.autojump.app.automation.ExecutionSession;
@@ -28,8 +33,10 @@ import java.util.Locale;
 public class PermissionGuideActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_LOCATION = 1001;
     private static final int REQUEST_CODE_BLUETOOTH = 1002;
+    private static final long CLICK_TEST_RESULT_TIMEOUT_MS = 7_000L;
 
     private TextView accessibilityStatus;
+    private TextView clickTestStatus;
     private TextView locationStatus;
     private TextView bluetoothStatus;
     private TextView pendingStatus;
@@ -37,10 +44,15 @@ public class PermissionGuideActivity extends AppCompatActivity {
     private TextView recentLogs;
     private Button requestLocation;
     private Button requestBluetooth;
+    private Button runClickTest;
+    private Button clickTestTarget;
 
     private PendingExecutionStore pendingStore;
     private ClickRecordingStore recordingStore;
     private ExecutionLogStore logStore;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private String clickTestSessionId;
+    private boolean clickTestTargetObserved;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +61,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
         setTitle("权限与运行状态");
 
         accessibilityStatus = findViewById(R.id.tv_accessibility_status);
+        clickTestStatus = findViewById(R.id.tv_click_test_status);
         locationStatus = findViewById(R.id.tv_location_status);
         bluetoothStatus = findViewById(R.id.tv_bluetooth_status);
         pendingStatus = findViewById(R.id.tv_pending_status);
@@ -56,6 +69,8 @@ public class PermissionGuideActivity extends AppCompatActivity {
         recentLogs = findViewById(R.id.tv_recent_logs);
         requestLocation = findViewById(R.id.btn_request_location);
         requestBluetooth = findViewById(R.id.btn_request_bluetooth);
+        runClickTest = findViewById(R.id.btn_run_click_test);
+        clickTestTarget = findViewById(R.id.btn_click_test_target);
 
         pendingStore = new PendingExecutionStore(this);
         recordingStore = new ClickRecordingStore(this);
@@ -63,6 +78,8 @@ public class PermissionGuideActivity extends AppCompatActivity {
 
         findViewById(R.id.btn_open_accessibility_settings).setOnClickListener(
                 v -> openAccessibilitySettings());
+        runClickTest.setOnClickListener(v -> runClickSelfTest());
+        clickTestTarget.setOnClickListener(v -> onClickTestTargetObserved());
         requestLocation.setOnClickListener(v -> requestLocationPermission());
         requestBluetooth.setOnClickListener(v -> requestBluetoothPermission());
         findViewById(R.id.btn_app_settings).setOnClickListener(v -> openAppSettings());
@@ -95,6 +112,83 @@ public class PermissionGuideActivity extends AppCompatActivity {
         showPendingSessions(pendingStore.getAll());
         showRecording(recordingStore.get());
         showLogs(logStore.getAll());
+    }
+
+    private void runClickSelfTest() {
+        if (!AccessibilityServiceState.isEnabled(this)) {
+            clickTestStatus.setText("请先开启自动点击服务，再运行安全测试。");
+            return;
+        }
+        clearStaleClickSelfTests();
+        clickTestTargetObserved = false;
+        clickTestTarget.setVisibility(View.VISIBLE);
+        runClickTest.setEnabled(false);
+        clickTestStatus.setText("测试已开始：1 秒后点击下方专用目标…");
+
+        String viewId = getPackageName() + ":id/btn_click_test_target";
+        ExecutionSession session = new AutomationOrchestrator(this).enqueue(this,
+                AccessibilityClickSelfTest.createRule(getPackageName(), viewId));
+        clickTestSessionId = session.getId();
+        handler.postDelayed(() -> finishClickSelfTest(session.getId(), true),
+                CLICK_TEST_RESULT_TIMEOUT_MS);
+    }
+
+    private void clearStaleClickSelfTests() {
+        for (ExecutionSession session : pendingStore.getAll()) {
+            if (AccessibilityClickSelfTest.RULE_ID.equals(session.getRuleId())) {
+                pendingStore.remove(session.getId());
+            }
+        }
+    }
+
+    private void onClickTestTargetObserved() {
+        if (clickTestSessionId == null) return;
+        clickTestTargetObserved = true;
+        clickTestStatus.setText("目标已收到点击，正在确认执行记录…");
+        String sessionId = clickTestSessionId;
+        handler.postDelayed(() -> finishClickSelfTest(sessionId, false), 250L);
+    }
+
+    private void finishClickSelfTest(String sessionId, boolean timedOut) {
+        if (sessionId == null || !sessionId.equals(clickTestSessionId)) return;
+        if (clickTestTargetObserved && hasSuccessfulExecutionLog(sessionId)) {
+            clickTestStatus.setText("安全点击测试通过 ✓（延迟、识别和点击均正常）");
+            resetClickTestControls();
+            updateStatus();
+            return;
+        }
+
+        ExecutionSession session = pendingStore.findById(sessionId);
+        if (session != null && session.getStatus() == ExecutionSession.Status.FAILED) {
+            clickTestStatus.setText("安全点击测试失败：" + safe(session.getLastError(), "点击未完成"));
+            resetClickTestControls();
+            updateStatus();
+            return;
+        }
+        if (timedOut) {
+            clickTestStatus.setText(clickTestTargetObserved
+                    ? "安全点击测试未通过：未找到对应的成功执行记录。"
+                    : "安全点击测试超时：专用目标未被点击。");
+            resetClickTestControls();
+            updateStatus();
+        }
+    }
+
+    private boolean hasSuccessfulExecutionLog(String sessionId) {
+        for (ExecutionLogStore.Entry entry : logStore.getAll()) {
+            if (sessionId.equals(entry.getSessionId())
+                    && ("SUCCESS".equals(entry.getStatus()) || "COMPLETED".equals(entry.getStatus()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void resetClickTestControls() {
+        clickTestSessionId = null;
+        clickTestTargetObserved = false;
+        clickTestTarget.setVisibility(View.GONE);
+        runClickTest.setEnabled(true);
     }
 
     private void showPendingSessions(List<ExecutionSession> sessions) {
@@ -234,5 +328,11 @@ public class PermissionGuideActivity extends AppCompatActivity {
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         updateStatus();
+    }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
 }
