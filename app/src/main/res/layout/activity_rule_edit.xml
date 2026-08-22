@@ -60,7 +60,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="动作（跳转的 deeplink）"
+            android:text="动作（按顺序执行）"
             android:textStyle="bold"
             android:layout_marginTop="16dp" />
 
@@ -84,5 +84,9 @@
             android:layout_marginTop="24dp"
             android:text="保存规则"
             android:textSize="16sp" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
     </LinearLayout>
 </ScrollView>

@@ -2,24 +2,56 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:padding="8dp"
     android:background="#F5F5F5"
     android:layout_marginBottom="4dp">
 
     <TextView
         android:id="@+id/tv_action"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:textSize="14sp"
-        android:maxLines="2"
+        android:maxLines="3"
         android:ellipsize="end" />
 
-    <Button
-        android:id="@+id/btn_remove_action"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="删除"
-        android:textSize="12sp" />
+        android:layout_marginTop="4dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_edit_action"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="40dp"
+            android:text="编辑"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_move_up"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="40dp"
+            android:text="上移"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_move_down"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="40dp"
+            android:text="下移"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_remove_action"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="40dp"
+            android:text="删除"
+            android:textSize="12sp" />
+    </LinearLayout>
 </LinearLayout>
