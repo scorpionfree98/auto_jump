@@ -30,11 +30,19 @@ public class AutomationOrchestrator {
             store.remove(session.getId());
             return;
         }
-        if (action.getDelayBeforeMs() > 0) {
-            session.setNotBefore(now + action.getDelayBeforeMs());
-            session.setStatus(ExecutionSession.Status.WAITING);
-            store.upsert(session);
-            return;
+        if (action.getType() != ActionType.CLICK && action.getDelayBeforeMs() > 0) {
+            if (session.getNotBefore() == 0) {
+                session.setNotBefore(now + action.getDelayBeforeMs());
+                session.setStatus(ExecutionSession.Status.WAITING);
+                store.upsert(session);
+                return;
+            }
+            if (now < session.getNotBefore()) {
+                session.setStatus(ExecutionSession.Status.WAITING);
+                store.upsert(session);
+                return;
+            }
+            session.setNotBefore(0);
         }
         if (action.getType() == ActionType.WAIT) {
             session.advance(now);

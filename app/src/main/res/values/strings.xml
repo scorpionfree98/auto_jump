@@ -3,4 +3,6 @@
     <string name="app_name">一键跳转</string>
     <string name="shortcut_settings">设置</string>
     <string name="shortcut_settings_long">打开规则设置</string>
+    <string name="accessibility_service_label">一键跳转自动点击</string>
+    <string name="accessibility_service_description">仅执行你保存的延迟点击动作，可随时在无障碍设置中关闭。</string>
 </resources>

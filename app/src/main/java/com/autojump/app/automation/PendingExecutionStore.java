@@ -44,6 +44,14 @@ public class PendingExecutionStore {
         }
     }
 
+    public ExecutionSession findById(String sessionId) {
+        if (sessionId == null) return null;
+        for (ExecutionSession session : getAll()) {
+            if (sessionId.equals(session.getId())) return session;
+        }
+        return null;
+    }
+
     public void remove(String sessionId) {
         synchronized (LOCK) {
             List<ExecutionSession> sessions = getAll();
