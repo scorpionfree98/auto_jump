@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -25,9 +26,11 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private final Map<String, Runnable> scheduled = new HashMap<>();
     private final ClickTargetResolver resolver = new ClickTargetResolver();
     private final AccessibilityNodeFinder nodeFinder = new AccessibilityNodeFinder();
+    private final ClickRecordingPolicy recordingPolicy = new ClickRecordingPolicy();
     private PendingExecutionStore store;
     private AutomationOrchestrator orchestrator;
     private ExecutionLogStore logs;
+    private ClickRecordingStore recordingStore;
     private String foregroundPackage;
 
     @Override
@@ -43,6 +46,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             foregroundPackage = event.getPackageName().toString();
         }
         ensureStores();
+        captureRecordedClick(event);
         processAllSessions();
     }
 
@@ -61,6 +65,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         if (store == null) store = new PendingExecutionStore(this);
         if (orchestrator == null) orchestrator = new AutomationOrchestrator(this);
         if (logs == null) logs = new ExecutionLogStore(this);
+        if (recordingStore == null) recordingStore = new ClickRecordingStore(this);
     }
 
     private void processAllSessions() {
@@ -248,9 +253,61 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 || "com.android.permissioncontroller".equals(packageName)
                 || "com.google.android.permissioncontroller".equals(packageName)
                 || "com.android.packageinstaller".equals(packageName)) return true;
+        return isLauncherPackage(packageName);
+    }
+
+    private void captureRecordedClick(AccessibilityEvent event) {
+        if (event == null || event.getEventType() != AccessibilityEvent.TYPE_VIEW_CLICKED) return;
+        ClickRecordingStore.State state = recordingStore.get();
+        if (state.getStatus() != ClickRecordingStore.Status.ARMED) return;
+        String packageName = event.getPackageName() == null ? null : event.getPackageName().toString();
+        AccessibilityNodeInfo source = event.getSource();
+        ClickRecordingPolicy.Decision decision = recordingPolicy.evaluate(state, packageName,
+                source != null && source.isPassword(), isLauncherPackage(packageName),
+                System.currentTimeMillis());
+        if (decision == ClickRecordingPolicy.Decision.INACTIVE) return;
+        if (decision == ClickRecordingPolicy.Decision.EXPIRED) {
+            recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.EXPIRED,
+                    "录制请求已过期");
+            return;
+        }
+        if (decision == ClickRecordingPolicy.Decision.PASSWORD) {
+            recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.REJECTED,
+                    "密码输入控件不会被录制");
+            return;
+        }
+        if (decision == ClickRecordingPolicy.Decision.DISALLOWED) {
+            recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.REJECTED,
+                    "系统、权限、锁屏或桌面界面不会被录制");
+            return;
+        }
+        if (source == null) {
+            recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.REJECTED,
+                    "系统没有提供该点击的控件信息");
+            return;
+        }
+
+        Rect bounds = new Rect();
+        source.getBoundsInScreen(bounds);
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        double relativeX = clamp(bounds.exactCenterX() / Math.max(1d, metrics.widthPixels));
+        double relativeY = clamp(bounds.exactCenterY() / Math.max(1d, metrics.heightPixels));
+        String text = recordingPolicy.safeShortText(source.getText(), source.isEditable());
+        String description = recordingPolicy.safeShortText(source.getContentDescription(), false);
+        recordingStore.capture(new RecordedClick(state.getRequestId(), packageName,
+                source.getViewIdResourceName(), text, description, relativeX, relativeY,
+                System.currentTimeMillis()));
+    }
+
+    private boolean isLauncherPackage(String packageName) {
+        if (packageName == null) return false;
         Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
         ResolveInfo info = getPackageManager().resolveActivity(home, 0);
         return info != null && info.activityInfo != null
                 && packageName.equals(info.activityInfo.packageName);
+    }
+
+    private double clamp(double value) {
+        return Math.max(0, Math.min(1, value));
     }
 }
