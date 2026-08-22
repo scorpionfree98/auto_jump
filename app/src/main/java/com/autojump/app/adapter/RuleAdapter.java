@@ -1,17 +1,16 @@
 package com.autojump.app.adapter;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.Switch;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.autojump.app.R;
 import com.autojump.app.bean.Rule;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import java.util.List;
 
 public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
@@ -68,14 +67,7 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
             if (mListener != null) mListener.onToggleEnabled(rule, checked);
         });
 
-        // 禁用状态显示灰色
-        if (!rule.isEnabled()) {
-            holder.itemView.setAlpha(0.5f);
-            holder.tvName.setTextColor(Color.GRAY);
-        } else {
-            holder.itemView.setAlpha(1.0f);
-            holder.tvName.setTextColor(Color.BLACK);
-        }
+        holder.itemView.setAlpha(rule.isEnabled() ? 1.0f : 0.62f);
 
         // 编辑
         holder.btnEdit.setOnClickListener(v -> {
@@ -95,7 +87,7 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvName, tvPriority, tvConditions, tvActions;
-        Switch switchEnabled;
+        SwitchMaterial switchEnabled;
         Button btnEdit, btnDelete;
 
         public ViewHolder(@NonNull View itemView) {

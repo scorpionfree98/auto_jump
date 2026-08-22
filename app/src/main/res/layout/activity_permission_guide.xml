@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/page_background"
     android:fillViewport="true">
 
     <LinearLayout
@@ -10,107 +12,304 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="权限与运行状态" android:textSize="22sp" android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="权限与运行状态"
+            android:textAppearance="@style/TextAppearance.AutoJump.PageTitle" />
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="所有权限均按功能选用。不开启自动点击服务时，普通 deeplink 和条件匹配仍可使用。" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="所有权限均按功能选用，可随时在系统设置中关闭。"
+            android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:text="自动点击服务"
-            android:textSize="17sp" android:textStyle="bold" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" android:textColor="#555555" android:textSize="13sp"
-            android:text="用途：执行你明确保存的延迟点击动作，以及在你点击“记录下一次点击”后记录一个目标控件。不会读取或记录密码、可编辑输入内容、系统权限界面、锁屏和桌面。可随时关闭。" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView android:id="@+id/tv_accessibility_status" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:text="自动点击服务：未开启" android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="自动点击服务"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
 
-        <Button android:id="@+id/btn_open_accessibility_settings" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="打开无障碍设置" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="执行已保存的延迟点击，并在你主动录制时识别一个目标控件。不会读取密码、输入内容、锁屏或桌面。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
-        <TextView android:id="@+id/tv_click_test_status" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="12dp"
-            android:text="开启服务后，可在本应用内验证一次延迟点击。"
-            android:textColor="#555555" android:textSize="13sp" />
+                <TextView
+                    android:id="@+id/tv_accessibility_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="自动点击服务：未开启"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Body"
+                    android:textStyle="bold" />
 
-        <Button android:id="@+id/btn_run_click_test" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="开始安全点击测试" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_open_accessibility_settings"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="打开无障碍设置" />
 
-        <Button android:id="@+id/btn_click_test_target" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="安全点击测试目标（请勿手动点击）"
-            android:visibility="gone" />
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@color/divider" />
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:text="当前任务"
-            android:textSize="17sp" android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tv_click_test_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="开启服务后，可在本应用内验证一次延迟点击。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
-        <TextView android:id="@+id/tv_pending_status" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="6dp"
-            android:text="没有待执行任务" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_run_click_test"
+                    style="@style/Widget.AutoJump.Button.Primary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="开始安全点击测试" />
 
-        <TextView android:id="@+id/tv_recording_status" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="6dp"
-            android:text="未在记录点击" android:textColor="#555555" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_click_test_target"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="安全点击测试目标（请勿手动点击）"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-        <Button android:id="@+id/btn_stop_automation" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:text="停止并清空待执行任务" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:text="最近运行记录"
-            android:textSize="17sp" android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView android:id="@+id/tv_recent_logs" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="6dp"
-            android:text="暂无运行记录" android:textColor="#555555" android:textSize="13sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="当前任务"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
 
-        <Button android:id="@+id/btn_clear_logs" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:text="清空运行记录" />
+                <TextView
+                    android:id="@+id/tv_pending_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="没有待执行任务"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Body" />
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:text="位置权限"
-            android:textSize="17sp" android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tv_recording_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="未在记录点击"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" android:textColor="#555555" android:textSize="13sp"
-            android:text="用途：判断 WiFi 名称及地理位置条件。仅在匹配规则时读取当前或最近位置。" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_stop_automation"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="停止并清空待执行任务"
+                    android:textColor="@color/danger"
+                    app:strokeColor="@color/danger" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-        <TextView android:id="@+id/tv_location_status" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="未授权" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
 
-        <Button android:id="@+id/btn_request_location" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="授予位置权限" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:text="附近设备权限"
-            android:textSize="17sp" android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="最近运行记录"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" android:text="用途：判断已配对蓝牙设备是否存在。"
-            android:textColor="#555555" android:textSize="13sp" />
+                <TextView
+                    android:id="@+id/tv_recent_logs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="暂无运行记录"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
-        <TextView android:id="@+id/tv_bluetooth_status" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="未授权" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_clear_logs"
+                    style="@style/Widget.AutoJump.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end"
+                    android:layout_marginTop="6dp"
+                    android:text="清空记录"
+                    android:textColor="@color/danger" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-        <Button android:id="@+id/btn_request_bluetooth" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="授予附近设备权限" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:text="系统后台设置"
-            android:textSize="17sp" android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" android:textColor="#555555" android:textSize="13sp"
-            android:text="HyperOS 可能需要按你的使用方式允许自启动或后台运行。无需地理位置规则时，不需要额外后台定位权限。" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="可选权限"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
 
-        <Button android:id="@+id/btn_app_settings" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="打开应用设置" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="位置"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Body"
+                    android:textStyle="bold" />
 
-        <Space android:layout_width="match_parent" android:layout_height="24dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="用于判断 WiFi 名称及地理位置条件，只在匹配规则时读取。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <TextView
+                    android:id="@+id/tv_location_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="未授权"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Body" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_request_location"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="授予位置权限" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@color/divider" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="附近设备"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Body"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="用于判断已配对蓝牙设备是否存在。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <TextView
+                    android:id="@+id/tv_bluetooth_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="未授权"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Body" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_request_bluetooth"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="授予附近设备权限" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="系统后台设置"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="HyperOS 可能需要按使用方式允许自启动或后台运行。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_app_settings"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="打开应用设置" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
     </LinearLayout>
 </ScrollView>

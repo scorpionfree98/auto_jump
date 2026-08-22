@@ -47,7 +47,7 @@
         <!-- 规则列表页 -->
         <activity
             android:name=".RuleListActivity"
-            android:exported="false"
+            android:exported="true"
             android:theme="@style/Theme.AutoJump" />
 
         <!-- 规则编辑页 -->

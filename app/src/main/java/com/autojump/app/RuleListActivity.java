@@ -1,20 +1,26 @@
 package com.autojump.app;
 
-import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.autojump.app.adapter.RuleAdapter;
+import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.bean.Rule;
 import com.autojump.app.data.RuleRepository;
 import com.autojump.app.util.SPUtil;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import java.util.List;
 
 /**
@@ -26,21 +32,29 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
     private RuleAdapter mAdapter;
     private Button btnAddRule;
     private Button btnTestRun;
+    private TextView homeSummary;
+    private TextView defaultDeeplink;
+    private View emptyState;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_rule_list);
 
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
         rvRules = findViewById(R.id.rv_rules);
         btnAddRule = findViewById(R.id.btn_add_rule);
         btnTestRun = findViewById(R.id.btn_test_run);
+        homeSummary = findViewById(R.id.tv_home_summary);
+        defaultDeeplink = findViewById(R.id.tv_default_deeplink);
+        emptyState = findViewById(R.id.empty_state);
+        Button emptyAddRule = findViewById(R.id.btn_empty_add_rule);
+        Button editDefaultLink = findViewById(R.id.btn_edit_default_link);
 
-        btnAddRule.setOnClickListener(v -> {
-            // 跳转到规则编辑页面（新增）
-            Intent intent = new Intent(this, RuleEditActivity.class);
-            startActivity(intent);
-        });
+        btnAddRule.setOnClickListener(v -> openNewRule());
+        emptyAddRule.setOnClickListener(v -> openNewRule());
+        editDefaultLink.setOnClickListener(v -> showDefaultLinkEditor());
 
         btnTestRun.setOnClickListener(v -> {
             // 立即执行一次规则匹配（用于调试）
@@ -51,6 +65,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
         mAdapter = new RuleAdapter(this, mRuleList, this);
         rvRules.setLayoutManager(new LinearLayoutManager(this));
         rvRules.setAdapter(mAdapter);
+        updateHomeState();
     }
 
     @Override
@@ -60,15 +75,56 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
         mRuleList.clear();
         mRuleList.addAll(SPUtil.getRuleList(this));
         mAdapter.notifyDataSetChanged();
+        updateHomeState();
+    }
+
+    private void openNewRule() {
+        startActivity(new Intent(this, RuleEditActivity.class));
+    }
+
+    private void updateHomeState() {
+        int enabledCount = 0;
+        for (Rule rule : mRuleList) if (rule.isEnabled()) enabledCount++;
+        boolean serviceEnabled = AccessibilityServiceState.isEnabled(this);
+        homeSummary.setText(mRuleList.size() + " 条规则 · " + enabledCount + " 条启用\n"
+                + "自动点击服务：" + (serviceEnabled ? "已开启 ✓" : "未开启"));
+        defaultDeeplink.setText(SPUtil.getDefaultLink(this));
+        boolean empty = mRuleList.isEmpty();
+        emptyState.setVisibility(empty ? View.VISIBLE : View.GONE);
+        rvRules.setVisibility(empty ? View.GONE : View.VISIBLE);
+    }
+
+    private void showDefaultLinkEditor() {
+        EditText input = new EditText(this);
+        input.setHint("如 example://page/path");
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setText(SPUtil.getDefaultLink(this));
+        input.setSelectAllOnFocus(true);
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("编辑默认跳转")
+                .setMessage("仅在没有启用任何自定义规则时使用。")
+                .setView(input)
+                .setPositiveButton("保存", (dialog, which) -> {
+                    String link = input.getText().toString().trim();
+                    if (link.isEmpty() || Uri.parse(link).getScheme() == null) {
+                        Toast.makeText(this, "请输入有效的 deeplink", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    SPUtil.setDefaultLink(this, link);
+                    defaultDeeplink.setText(link);
+                    Toast.makeText(this, "默认跳转已保存", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void testRun() {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("测试运行")
                 .setMessage("将立即执行一次规则匹配，检查当前状态下哪些规则会被触发。")
                 .setPositiveButton("执行", (d, w) -> {
                     int matched = com.autojump.app.util.RuleEngine.executeRules(this);
-                    new AlertDialog.Builder(this)
+                    new MaterialAlertDialogBuilder(this)
                             .setTitle("测试结果")
                             .setMessage("匹配了 " + matched + " 条规则")
                             .setPositiveButton("确定", null)
@@ -87,13 +143,14 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
 
     @Override
     public void onDelete(Rule rule) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("删除规则")
                 .setMessage("确定删除「" + rule.getName() + "」？")
                 .setPositiveButton("删除", (d, w) -> {
                     mRuleList.remove(rule);
                     SPUtil.saveRuleList(this, mRuleList);
                     mAdapter.notifyDataSetChanged();
+                    updateHomeState();
                 })
                 .setNegativeButton("取消", null)
                 .show();
@@ -103,6 +160,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
     public void onToggleEnabled(Rule rule, boolean enabled) {
         rule.setEnabled(enabled);
         SPUtil.saveRuleList(this, mRuleList);
+        updateHomeState();
     }
 
     @Override
@@ -133,7 +191,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
     }
 
     private void showAbout() {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("关于")
                 .setMessage("一键跳转 v" + BuildConfig.VERSION_NAME
                         + "\n\n按条件执行 deeplink、等待和你明确保存的点击动作。自动点击服务可随时关闭，待执行任务也可在“权限与运行状态”中清空。"
@@ -180,7 +238,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                 Toast.makeText(this, "已导出到: " + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
-            new AlertDialog.Builder(this)
+            new MaterialAlertDialogBuilder(this)
                     .setTitle("导出失败")
                     .setMessage(e.getMessage())
                     .setPositiveButton("确定", null)
@@ -224,7 +282,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                         List<Rule> importedRules = new RuleRepository(this).importRules(json);
 
                         if (importedRules != null && !importedRules.isEmpty()) {
-                            new AlertDialog.Builder(this)
+                            new MaterialAlertDialogBuilder(this)
                                     .setTitle("导入确认")
                                     .setMessage("找到 " + importedRules.size() + " 条规则，是否覆盖当前规则？")
                                     .setPositiveButton("覆盖", (d, w) -> {
@@ -232,6 +290,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                                         mRuleList.clear();
                                         mRuleList.addAll(importedRules);
                                         mAdapter.notifyDataSetChanged();
+                                        updateHomeState();
                                         Toast.makeText(this, "导入成功", Toast.LENGTH_SHORT).show();
                                     })
                                     .setNegativeButton("追加", (d, w) -> {
@@ -241,6 +300,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                                         mRuleList.clear();
                                         mRuleList.addAll(current);
                                         mAdapter.notifyDataSetChanged();
+                                        updateHomeState();
                                         Toast.makeText(this, "导入成功", Toast.LENGTH_SHORT).show();
                                     })
                                     .setNeutralButton("取消", null)
@@ -250,7 +310,7 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                         }
                     }
                 } catch (Exception e) {
-                    new AlertDialog.Builder(this)
+                    new MaterialAlertDialogBuilder(this)
                             .setTitle("导入失败")
                             .setMessage(e.getMessage())
                             .setPositiveButton("确定", null)

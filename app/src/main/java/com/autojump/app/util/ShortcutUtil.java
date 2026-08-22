@@ -22,20 +22,12 @@ public class ShortcutUtil {
         int max = ShortcutManagerCompat.getMaxShortcutCountPerActivity(context);
         if (max <= 0) max = 4;
 
-        // 固定的「设置」快捷，作为配置页入口（主页秒跳转无界面，否则无法进入设置）
-        Intent settingsIntent = new Intent(context, MainActivity.class);
-        settingsIntent.setAction(Intent.ACTION_VIEW);
-        settingsIntent.putExtra("open_settings", true);
-        ShortcutInfoCompat settingsShortcut = new ShortcutInfoCompat.Builder(context, "shortcut_settings")
-                .setShortLabel("设置")
-                .setLongLabel("打开配置页")
-                .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
-                .setIntent(settingsIntent)
-                .build();
-        shortcutList.add(settingsShortcut);
+        // shortcuts.xml 已提供永久“设置”入口；为它预留一个系统名额。
+        // setDynamicShortcuts 会覆盖旧动态列表，因此也会清掉历史重复设置项。
+        int dynamicMax = Math.max(0, max - 1);
 
         for (ConfigBean bean : configList) {
-            if (shortcutList.size() >= max) break;
+            if (shortcutList.size() >= dynamicMax) break;
 
             Intent jumpIntent = new Intent(context, MainActivity.class);
             jumpIntent.setAction(Intent.ACTION_VIEW);

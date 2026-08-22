@@ -1,57 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.AutoJump.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="8dp"
-    android:background="#F5F5F5"
-    android:layout_marginBottom="4dp">
-
-    <TextView
-        android:id="@+id/tv_action"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:maxLines="3"
-        android:ellipsize="end" />
+    android:layout_marginBottom="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:gravity="end"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <Button
-            android:id="@+id/btn_edit_action"
-            android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/tv_action"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="40dp"
-            android:text="编辑"
-            android:textSize="12sp" />
+            android:ellipsize="end"
+            android:maxLines="4"
+            android:textAppearance="@style/TextAppearance.AutoJump.Body" />
 
-        <Button
-            android:id="@+id/btn_move_up"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="40dp"
-            android:text="上移"
-            android:textSize="12sp" />
+            android:layout_marginTop="6dp"
+            android:gravity="end"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn_move_down"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minHeight="40dp"
-            android:text="下移"
-            android:textSize="12sp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_edit_action"
+                style="@style/Widget.AutoJump.Button.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="编辑" />
 
-        <Button
-            android:id="@+id/btn_remove_action"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minHeight="40dp"
-            android:text="删除"
-            android:textSize="12sp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_move_up"
+                style="@style/Widget.AutoJump.Button.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="上移" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_move_down"
+                style="@style/Widget.AutoJump.Button.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="下移" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_remove_action"
+                style="@style/Widget.AutoJump.Button.Danger"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="删除" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

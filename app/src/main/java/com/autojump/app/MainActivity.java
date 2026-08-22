@@ -7,6 +7,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.autojump.app.util.RuleEngine;
 import com.autojump.app.util.SPUtil;
+import com.autojump.app.util.ShortcutUtil;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -16,6 +17,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         // 透明无布局，不展示界面
         SPUtil.initDefaultLink(this);
+        // 静态“设置”入口由 shortcuts.xml 保证；这里只恢复 deeplink 动态快捷项，
+        // 同时清理旧版本可能留下的重复“设置”动态项。
+        ShortcutUtil.refreshDynamicShortcut(this);
         handleIntent(getIntent());
     }
 
@@ -27,7 +31,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleIntent(Intent intent) {
-        // 从「设置」快捷进入配置页
+        // 兼容旧版本已经缓存的「设置」快捷方式。新安装版本会由
+        // shortcuts.xml 直接打开 RuleListActivity，避免透明跳板页成为任务根页面。
         if (intent != null && intent.getBooleanExtra("open_settings", false)) {
             startActivity(new Intent(this, RuleListActivity.class));
             finish();

@@ -10,10 +10,6 @@
         <intent
             android:action="android.intent.action.VIEW"
             android:targetPackage="com.autojump.app"
-            android:targetClass="com.autojump.app.MainActivity">
-            <extra
-                android:name="open_settings"
-                android:value="true" />
-        </intent>
+            android:targetClass="com.autojump.app.RuleListActivity" />
     </shortcut>
 </shortcuts>

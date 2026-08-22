@@ -1,103 +1,205 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="@color/page_background"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="规则名称"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/et_rule_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="如：工作日早高峰"
-            android:inputType="text" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="优先级（数字越大越优先）"
-            android:textStyle="bold"
-            android:layout_marginTop="12dp" />
-
-        <EditText
-            android:id="@+id/et_priority"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="0"
-            android:inputType="number"
-            android:text="0" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/switch_request_unlock"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="锁屏时唤醒并请求系统解锁" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="无安全锁时可直接继续；有密码、指纹或人脸时由系统完成认证。本应用不会保存或模拟解锁凭据。"
-            android:textColor="#666666"
-            android:textSize="12sp" />
+            android:text="规则编辑"
+            android:textAppearance="@style/TextAppearance.AutoJump.PageTitle" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="条件（所有条件都满足才执行）"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp" />
-
-        <LinearLayout
-            android:id="@+id/ll_conditions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="8dp" />
+            android:layout_marginTop="4dp"
+            android:text="设置触发条件，并按顺序编排自动动作。"
+            android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
-        <Button
-            android:id="@+id/btn_add_condition"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="+ 添加条件" />
+            android:layout_marginTop="18dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="动作（按顺序执行）"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <LinearLayout
-            android:id="@+id/ll_actions"
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="基本信息"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.AutoJump.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:hint="规则名称">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_rule_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:maxLines="2" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.AutoJump.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="优先级（数字越大越优先）">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_priority"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:text="0" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="8dp" />
+            android:layout_marginTop="12dp">
 
-        <Button
-            android:id="@+id/btn_add_action"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="安全设置"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switch_request_unlock"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:minHeight="48dp"
+                    android:text="锁屏时唤醒并请求系统解锁" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="认证由 Android 系统完成；应用不会读取、保存或模拟密码、指纹和人脸。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="+ 添加动作" />
+            android:layout_marginTop="12dp">
 
-        <Button
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="触发条件"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="所有条件都满足时才执行；不添加条件则始终匹配。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <LinearLayout
+                    android:id="@+id/ll_conditions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add_condition"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="添加条件" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.AutoJump.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="执行动作"
+                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="动作会从上到下依次执行。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <LinearLayout
+                    android:id="@+id/ll_actions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add_action"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="添加动作" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_save"
+            style="@style/Widget.AutoJump.Button.Primary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="保存规则"
-            android:textSize="16sp" />
+            android:layout_marginTop="18dp"
+            android:text="保存规则" />
 
         <Space
             android:layout_width="match_parent"

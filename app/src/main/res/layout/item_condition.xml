@@ -1,23 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.AutoJump.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="8dp"
-    android:background="#F5F5F5"
-    android:layout_marginBottom="4dp">
+    android:layout_marginBottom="8dp">
 
-    <TextView
-        android:id="@+id/tv_condition_desc"
-        android:layout_width="0dp"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:textSize="14sp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="4dp"
+        android:paddingBottom="6dp">
 
-    <Button
-        android:id="@+id/btn_remove_condition"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="删除"
-        android:textSize="12sp" />
-</LinearLayout>
+        <TextView
+            android:id="@+id/tv_condition_desc"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textAppearance="@style/TextAppearance.AutoJump.Body" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_remove_condition"
+            style="@style/Widget.AutoJump.Button.Danger"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="删除" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
