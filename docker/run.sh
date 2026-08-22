@@ -19,6 +19,7 @@ echo "==> 在容器内编译 APK"
 docker run --rm --network=host \
     -v "$PROJECT_DIR":/workspace \
     -v autojump-gradle-cache:/root/.gradle \
+    -v autojump-android-home:/root/.android \
     -w /workspace \
     "$IMAGE_NAME" \
     bash docker/build_apk.sh "$@"

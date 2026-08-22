@@ -3,6 +3,7 @@ set -euo pipefail
 
 readonly REMOTE_HOST="172.31.129.120"
 readonly REMOTE_DIR="/home/kmkuang/codex_build/auto_jump_click"
+readonly REMOTE_ANDROID_HOME="/home/kmkuang/codex_build/autojump-signing/android"
 readonly IMAGE_NAME="autojump-builder-click"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -22,13 +23,16 @@ done
 bash "$SCRIPT_DIR/sync_to_builder.sh"
 
 echo "==> 在 120 Docker 环境执行: $*"
-ssh "$REMOTE_HOST" bash -s -- "$REMOTE_DIR" "$IMAGE_NAME" "$@" <<'REMOTE_SCRIPT'
+ssh "$REMOTE_HOST" bash -s -- "$REMOTE_DIR" "$REMOTE_ANDROID_HOME" "$IMAGE_NAME" "$@" <<'REMOTE_SCRIPT'
 set -euo pipefail
 remote_dir="$1"
-image_name="$2"
-shift 2
+android_home="$2"
+image_name="$3"
+shift 3
 
 cd "$remote_dir"
+mkdir -p "$android_home"
+chmod 700 "$android_home"
 
 # 服务器维护时 Docker 套接字可能短暂重置。只重试 Docker 自身的 125 错误；
 # Gradle 编译或测试失败保持原始状态，不做可能掩盖问题的重试。
@@ -38,6 +42,7 @@ for attempt in 1 2 3; do
     docker run --rm --network=host \
         -v "$remote_dir":/workspace \
         -v autojump-gradle-cache:/root/.gradle \
+        -v "$android_home":/root/.android \
         -w /workspace \
         "$image_name" \
         ./gradlew "$@" --no-daemon
@@ -56,8 +61,9 @@ host_gid="$(id -g)"
 for attempt in 1 2 3; do
     if docker run --rm \
         -v "$remote_dir":/workspace \
+        -v "$android_home":/android-signing \
         "$image_name" \
-        chown -R "$host_uid:$host_gid" /workspace; then
+        sh -c 'chown -R "$1:$2" /workspace /android-signing && chmod 700 /android-signing && if [ -f /android-signing/debug.keystore ]; then chmod 600 /android-signing/debug.keystore; fi' sh "$host_uid" "$host_gid"; then
         break
     fi
     if [[ "$attempt" -eq 3 ]]; then
