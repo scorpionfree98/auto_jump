@@ -21,3 +21,6 @@ local.properties
 
 # Log
 *.log
+
+# 本地验收产物
+artifacts/

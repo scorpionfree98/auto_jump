@@ -43,7 +43,7 @@ The refactor is complete only when all of the following are true:
 
 ### Task 1: Freeze and verify the development baseline
 
-**Status:** Completed in commits `858484e` and `03af1b3`.
+**Status:** Completed in commit `31df1aa`.
 
 **Files:**
 - Existing: `docs/plans/2026-08-22-accessibility-click-design.md`
@@ -65,7 +65,7 @@ Expected:
 
 - Branch is `refactor/accessibility-click`.
 - Worktree is clean before the next task.
-- `03af1b3` and `858484e` are present.
+- `31df1aa` is present.
 
 **Step 2: Preserve the original baseline**
 
