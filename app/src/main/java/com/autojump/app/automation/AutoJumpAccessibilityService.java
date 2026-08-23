@@ -30,6 +30,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private final ClickTargetResolver resolver = new ClickTargetResolver();
     private final AccessibilityNodeFinder nodeFinder = new AccessibilityNodeFinder();
     private final ClickRecordingPolicy recordingPolicy = new ClickRecordingPolicy();
+    private final ForegroundPackageTracker foregroundTracker = new ForegroundPackageTracker();
     private PendingExecutionStore store;
     private AutomationOrchestrator orchestrator;
     private ExecutionLogStore logs;
@@ -48,8 +49,12 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event != null && event.getPackageName() != null) {
-            foregroundPackage = event.getPackageName().toString();
+        if (event != null) {
+            String eventPackage = event.getPackageName() == null
+                    ? null : event.getPackageName().toString();
+            foregroundPackage = foregroundTracker.update(foregroundPackage, eventPackage,
+                    packageName(getRootInActiveWindow()), getPackageName(),
+                    event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
         }
         ensureStores();
         updateRecordingOverlay();

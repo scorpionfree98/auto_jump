@@ -73,6 +73,9 @@ final class RecordingOverlayController {
     }
 
     private View createView(Listener listener) {
+        final String clickRequestId = requestId;
+        final String clickTargetPackage = targetPackage;
+        final boolean[] actionTaken = {false};
         int padding = dp(12);
         LinearLayout root = new LinearLayout(service);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -102,13 +105,32 @@ final class RecordingOverlayController {
 
         Button start = new Button(service);
         start.setText("开始录制");
-        start.setOnClickListener(view -> listener.onStart(requestId, targetPackage));
+        start.setMinWidth(dp(132));
+        start.setMinimumWidth(dp(132));
+        start.setMinHeight(dp(56));
+        start.setMinimumHeight(dp(56));
         actions.addView(start);
 
         Button cancel = new Button(service);
         cancel.setText("取消");
-        cancel.setOnClickListener(view -> listener.onCancel(requestId));
+        cancel.setMinHeight(dp(56));
+        cancel.setMinimumHeight(dp(56));
         actions.addView(cancel);
+
+        start.setOnClickListener(view -> {
+            if (actionTaken[0]) return;
+            actionTaken[0] = true;
+            start.setEnabled(false);
+            cancel.setEnabled(false);
+            listener.onStart(clickRequestId, clickTargetPackage);
+        });
+        cancel.setOnClickListener(view -> {
+            if (actionTaken[0]) return;
+            actionTaken[0] = true;
+            start.setEnabled(false);
+            cancel.setEnabled(false);
+            listener.onCancel(clickRequestId);
+        });
         return root;
     }
 
