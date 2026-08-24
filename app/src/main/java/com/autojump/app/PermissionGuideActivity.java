@@ -177,7 +177,8 @@ public class PermissionGuideActivity extends AppCompatActivity {
     private boolean hasSuccessfulExecutionLog(String sessionId) {
         for (ExecutionLogStore.Entry entry : logStore.getAll()) {
             if (sessionId.equals(entry.getSessionId())
-                    && ("SUCCESS".equals(entry.getStatus()) || "COMPLETED".equals(entry.getStatus()))) {
+                    && ("DISPATCHED".equals(entry.getStatus())
+                    || "COMPLETED".equals(entry.getStatus()))) {
                 return true;
             }
         }

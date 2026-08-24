@@ -331,8 +331,12 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         }
         session.setStatus(ExecutionSession.Status.RUNNING);
         store.upsert(session);
-        if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) completeAction(session.getId());
-        else fail(store.findById(session.getId()), "控件拒绝点击动作", System.currentTimeMillis());
+        if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            completeAction(session.getId(), ClickDispatchResult.node());
+        } else {
+            fail(store.findById(session.getId()), "控件拒绝点击动作",
+                    System.currentTimeMillis());
+        }
     }
 
     @TargetApi(Build.VERSION_CODES.N)
@@ -360,7 +364,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         store.upsert(session);
         boolean accepted = dispatchGesture(gesture, new GestureResultCallback() {
             @Override public void onCompleted(GestureDescription gestureDescription) {
-                completeAction(session.getId());
+                completeAction(session.getId(), ClickDispatchResult.gesture());
             }
 
             @Override public void onCancelled(GestureDescription gestureDescription) {
@@ -378,14 +382,14 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 && candidate.getRelativeY() >= 0d && candidate.getRelativeY() <= 1d;
     }
 
-    private void completeAction(String sessionId) {
+    private void completeAction(String sessionId, ClickDispatchResult result) {
         ExecutionSession session = store.findById(sessionId);
         if (session == null || session.getStatus() != ExecutionSession.Status.RUNNING) return;
         long now = System.currentTimeMillis();
-        logs.append(session, "SUCCESS", "点击动作执行成功");
+        logs.append(session, result.getStatus(), result.getMessage());
         session.advance(now);
         if (session.getStatus() == ExecutionSession.Status.COMPLETED) {
-            logs.append(session, "COMPLETED", "规则动作全部完成");
+            logs.append(session, "COMPLETED", "规则动作已全部派发");
             store.remove(sessionId);
             return;
         }
