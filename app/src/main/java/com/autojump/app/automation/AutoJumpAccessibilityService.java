@@ -2,6 +2,7 @@ package com.autojump.app.automation;
 
 import android.annotation.TargetApi;
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.GestureDescription;
 import android.app.KeyguardManager;
 import android.content.Context;
@@ -14,6 +15,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 import com.autojump.app.domain.ActionType;
@@ -38,6 +40,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private RecordingOverlayController recordingOverlay;
     private Runnable recordingExpiry;
     private String foregroundPackage;
+    private String recordingCandidateRequestId;
+    private String recordingTargetCandidate;
 
     @Override
     protected void onServiceConnected() {
@@ -49,14 +53,17 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        String eventPackage = null;
+        String activeRootPackage = packageName(getRootInActiveWindow());
         if (event != null) {
-            String eventPackage = event.getPackageName() == null
+            eventPackage = event.getPackageName() == null
                     ? null : event.getPackageName().toString();
             foregroundPackage = foregroundTracker.update(foregroundPackage, eventPackage,
-                    packageName(getRootInActiveWindow()), getPackageName(),
+                    activeRootPackage, getPackageName(),
                     event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
         }
         ensureStores();
+        updateRecordingTargetCandidate(event, eventPackage, activeRootPackage);
         updateRecordingOverlay();
         captureRecordedClick(event);
         processAllSessions();
@@ -86,9 +93,12 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private void updateRecordingOverlay() {
         ClickRecordingStore.State state = recordingStore.get();
         if (state.getStatus() == ClickRecordingStore.Status.WAITING_START) {
+            syncRecordingCandidateRequest(state);
+            String evaluatedPackage = state.getTargetPackage() == null
+                    ? recordingTargetCandidate : foregroundPackage;
             ClickRecordingPolicy.StartDecision decision = recordingPolicy.evaluateStart(
-                    state, foregroundPackage, getPackageName(),
-                    isLauncherPackage(foregroundPackage), System.currentTimeMillis());
+                    state, evaluatedPackage, getPackageName(),
+                    isLauncherPackage(evaluatedPackage), System.currentTimeMillis());
             if (decision == ClickRecordingPolicy.StartDecision.EXPIRED) {
                 recordingStore.reject(state.getRequestId(), ClickRecordingStore.Status.EXPIRED,
                         "录制请求已过期");
@@ -105,7 +115,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             }
             if (state.getTargetPackage() == null) {
                 state = recordingStore.bindTargetPackage(
-                        state.getRequestId(), foregroundPackage);
+                        state.getRequestId(), recordingTargetCandidate);
+                clearRecordingTargetCandidate();
             }
             showRecordingOverlay(state);
             return;
@@ -115,7 +126,58 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             scheduleRecordingExpiry(state);
             return;
         }
+        clearRecordingTargetCandidate();
         hideRecordingOverlay();
+    }
+
+    private void updateRecordingTargetCandidate(AccessibilityEvent event, String eventPackage,
+                                                String activeRootPackage) {
+        ClickRecordingStore.State state = recordingStore.get();
+        if (state.getStatus() != ClickRecordingStore.Status.WAITING_START
+                || state.getTargetPackage() != null) {
+            if (state.getStatus() != ClickRecordingStore.Status.WAITING_START) {
+                clearRecordingTargetCandidate();
+            }
+            return;
+        }
+        syncRecordingCandidateRequest(state);
+        if (event == null) return;
+        String candidate = foregroundTracker.trustedWindowPackage(eventPackage,
+                activeRootPackage, getPackageName(),
+                event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+        if (candidate == null || isEnabledAccessibilityServicePackage(candidate)) return;
+        ClickRecordingPolicy.StartDecision decision = recordingPolicy.evaluateStart(
+                state, candidate, getPackageName(), isLauncherPackage(candidate),
+                System.currentTimeMillis());
+        if (decision == ClickRecordingPolicy.StartDecision.ELIGIBLE) {
+            recordingTargetCandidate = candidate;
+        }
+    }
+
+    private void syncRecordingCandidateRequest(ClickRecordingStore.State state) {
+        String requestId = state == null ? null : state.getRequestId();
+        if (requestId == null || !requestId.equals(recordingCandidateRequestId)) {
+            recordingCandidateRequestId = requestId;
+            recordingTargetCandidate = null;
+        }
+    }
+
+    private void clearRecordingTargetCandidate() {
+        recordingCandidateRequestId = null;
+        recordingTargetCandidate = null;
+    }
+
+    private boolean isEnabledAccessibilityServicePackage(String packageName) {
+        AccessibilityManager manager = (AccessibilityManager)
+                getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (manager == null || packageName == null) return false;
+        for (AccessibilityServiceInfo info : manager.getEnabledAccessibilityServiceList(
+                AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            ResolveInfo resolveInfo = info == null ? null : info.getResolveInfo();
+            if (resolveInfo != null && resolveInfo.serviceInfo != null
+                    && packageName.equals(resolveInfo.serviceInfo.packageName)) return true;
+        }
+        return false;
     }
 
     private void showRecordingOverlay(ClickRecordingStore.State state) {
@@ -225,7 +287,9 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         String activePackage = packageName(root);
         if (activePackage == null) activePackage = foregroundPackage;
         long actionStartedAt = Math.max(session.getUpdatedAt(), session.getNotBefore());
-        List<AccessibilityNodeFinder.NodeMatch> matches = nodeFinder.find(root, action);
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        List<AccessibilityNodeFinder.NodeMatch> matches = nodeFinder.find(
+                root, action, metrics.widthPixels, metrics.heightPixels);
         ClickResolution resolution = resolver.resolve(action, activePackage,
                 nodeFinder.candidates(matches), actionStartedAt, now);
         handleResolution(session, action, matches, resolution, actionStartedAt, now);

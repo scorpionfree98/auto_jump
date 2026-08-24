@@ -37,4 +37,23 @@ public class ForegroundPackageTrackerTest {
     @Test public void selfEventDoesNotInventForegroundPackage() {
         assertNull(tracker.update(null, SERVICE, SERVICE, SERVICE, true));
     }
+
+    @Test public void matchingWindowEventAndRootAreTrustedForRecording() {
+        assertEquals("com.target", tracker.trustedWindowPackage(
+                "com.target", "com.target", SERVICE, true));
+    }
+
+    @Test public void mismatchedWindowEventAndRootAreNotTrustedForRecording() {
+        assertNull(tracker.trustedWindowPackage(
+                "com.interference", "com.target", SERVICE, true));
+    }
+
+    @Test public void contentChangeIsNotTrustedForRecordingBinding() {
+        assertNull(tracker.trustedWindowPackage(
+                "com.target", "com.target", SERVICE, false));
+    }
+
+    @Test public void serviceWindowIsNotTrustedForRecordingBinding() {
+        assertNull(tracker.trustedWindowPackage(SERVICE, SERVICE, SERVICE, true));
+    }
 }

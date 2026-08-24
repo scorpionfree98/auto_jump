@@ -1,5 +1,6 @@
 package com.autojump.app.automation;
 
+import android.graphics.Rect;
 import android.view.accessibility.AccessibilityNodeInfo;
 import com.autojump.app.domain.RuleAction;
 import java.util.ArrayDeque;
@@ -25,8 +26,10 @@ public class AccessibilityNodeFinder {
         public AccessibilityNodeInfo getClickableNode() { return clickableNode; }
     }
 
-    public List<NodeMatch> find(AccessibilityNodeInfo root, RuleAction action) {
-        if (root == null || action == null || action.getTargetPackage() == null) {
+    public List<NodeMatch> find(AccessibilityNodeInfo root, RuleAction action,
+                                int displayWidth, int displayHeight) {
+        if (root == null || action == null || action.getTargetPackage() == null
+                || displayWidth <= 0 || displayHeight <= 0) {
             return Collections.emptyList();
         }
         List<NodeMatch> matches = new ArrayList<>();
@@ -40,13 +43,20 @@ public class AccessibilityNodeFinder {
             if (!belongsToPackage(node, action.getTargetPackage()) || node.isPassword()) continue;
             AccessibilityNodeInfo clickable = nearestClickable(node);
             if (clickable == null) continue;
+            Rect sourceBounds = new Rect();
+            node.getBoundsInScreen(sourceBounds);
+            Rect bounds = new Rect();
+            clickable.getBoundsInScreen(bounds);
             String key = "node-" + visited;
             matches.add(new NodeMatch(new ClickTargetResolver.NodeCandidate(
                     key,
                     text(node.getViewIdResourceName()),
                     text(node.getText()),
                     text(node.getContentDescription()),
-                    clickable.isEnabled() && clickable.isVisibleToUser() && clickable.isClickable()),
+                    clickable.isEnabled() && clickable.isVisibleToUser() && clickable.isClickable(),
+                    (double) sourceBounds.exactCenterX() / displayWidth,
+                    (double) sourceBounds.exactCenterY() / displayHeight,
+                    isPreciseClickTarget(node, clickable, bounds, displayWidth, displayHeight)),
                     clickable));
         }
         return matches;
@@ -85,6 +95,16 @@ public class AccessibilityNodeFinder {
             current = current.getParent();
         }
         return null;
+    }
+
+    private boolean isPreciseClickTarget(AccessibilityNodeInfo source,
+                                         AccessibilityNodeInfo clickable, Rect clickableBounds,
+                                         int displayWidth, int displayHeight) {
+        if (source == clickable) return true;
+        double clickableArea = Math.max(0, clickableBounds.width())
+                * (double) Math.max(0, clickableBounds.height());
+        double displayArea = displayWidth * (double) displayHeight;
+        return displayArea > 0 && clickableArea / displayArea <= 0.35d;
     }
 
     private String text(CharSequence value) {

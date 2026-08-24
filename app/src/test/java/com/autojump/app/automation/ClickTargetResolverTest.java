@@ -64,6 +64,33 @@ public class ClickTargetResolverTest {
         assertEquals(ClickResolution.Decision.RETRY, result.getDecision());
     }
 
+    @Test public void coordinatesDisambiguateDuplicateText() {
+        ClickTargetResolver.NodeCandidate bottomTab = candidateAt(
+                "bottom-tab", null, "提交", null, 0.17, 0.97);
+        ClickTargetResolver.NodeCandidate primaryButton = candidateAt(
+                "primary-button", null, "提交", null, 0.50, 0.75);
+        ClickResolution result = resolver.resolve(action(), "com.example",
+                Arrays.asList(bottomTab, primaryButton), 1000, 3000);
+        assertEquals(ClickResolution.Decision.NODE, result.getDecision());
+        assertEquals("primary-button", result.getCandidate().getKey());
+    }
+
+    @Test public void firstMatchRemainsFallbackWithoutCandidateCoordinates() {
+        ClickTargetResolver.NodeCandidate first = candidate("first", null, "提交", null);
+        ClickTargetResolver.NodeCandidate second = candidate("second", null, "提交", null);
+        ClickResolution result = resolver.resolve(action(), "com.example",
+                Arrays.asList(first, second), 1000, 3000);
+        assertEquals("first", result.getCandidate().getKey());
+    }
+
+    @Test public void gestureIsUsedForImpreciseContainerMatch() {
+        ClickTargetResolver.NodeCandidate canvasText = new ClickTargetResolver.NodeCandidate(
+                "canvas-text", null, "提交", null, true, 0.5, 0.75, false);
+        ClickResolution result = resolver.resolve(action(), "com.example",
+                Collections.singletonList(canvasText), 1000, 3000);
+        assertEquals(ClickResolution.Decision.GESTURE, result.getDecision());
+    }
+
     private RuleAction action() {
         return RuleAction.click("com.example", 1000, 5000, 500,
                 "com.example:id/submit", "提交", "确认提交", 0.5, 0.75);
@@ -72,5 +99,11 @@ public class ClickTargetResolverTest {
     private ClickTargetResolver.NodeCandidate candidate(String key, String id, String text,
                                                          String description) {
         return new ClickTargetResolver.NodeCandidate(key, id, text, description, true);
+    }
+
+    private ClickTargetResolver.NodeCandidate candidateAt(String key, String id, String text,
+                                                           String description, double x, double y) {
+        return new ClickTargetResolver.NodeCandidate(
+                key, id, text, description, true, x, y);
     }
 }

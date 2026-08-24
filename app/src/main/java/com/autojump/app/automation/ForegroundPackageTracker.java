@@ -12,6 +12,14 @@ final class ForegroundPackageTracker {
         return previousPackage;
     }
 
+    String trustedWindowPackage(String eventPackage, String activeRootPackage,
+                                String servicePackage, boolean windowStateChanged) {
+        if (!windowStateChanged) return null;
+        String event = normalizedExternal(eventPackage, servicePackage);
+        String active = normalizedExternal(activeRootPackage, servicePackage);
+        return event != null && event.equals(active) ? event : null;
+    }
+
     private String normalizedExternal(String packageName, String servicePackage) {
         if (packageName == null) return null;
         String normalized = packageName.trim();

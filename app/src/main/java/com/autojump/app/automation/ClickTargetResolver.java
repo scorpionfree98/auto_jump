@@ -13,14 +13,32 @@ public class ClickTargetResolver {
         private final String text;
         private final String contentDescription;
         private final boolean enabledAndClickable;
+        private final Double relativeX;
+        private final Double relativeY;
+        private final boolean preciseClickTarget;
 
         public NodeCandidate(String key, String viewId, String text, String contentDescription,
                              boolean enabledAndClickable) {
+            this(key, viewId, text, contentDescription, enabledAndClickable, null, null, true);
+        }
+
+        public NodeCandidate(String key, String viewId, String text, String contentDescription,
+                             boolean enabledAndClickable, Double relativeX, Double relativeY) {
+            this(key, viewId, text, contentDescription, enabledAndClickable,
+                    relativeX, relativeY, true);
+        }
+
+        public NodeCandidate(String key, String viewId, String text, String contentDescription,
+                             boolean enabledAndClickable, Double relativeX, Double relativeY,
+                             boolean preciseClickTarget) {
             this.key = key;
             this.viewId = viewId;
             this.text = text;
             this.contentDescription = contentDescription;
             this.enabledAndClickable = enabledAndClickable;
+            this.relativeX = relativeX;
+            this.relativeY = relativeY;
+            this.preciseClickTarget = preciseClickTarget;
         }
 
         public String getKey() { return key; }
@@ -28,6 +46,9 @@ public class ClickTargetResolver {
         public String getText() { return text; }
         public String getContentDescription() { return contentDescription; }
         public boolean isEnabledAndClickable() { return enabledAndClickable; }
+        public Double getRelativeX() { return relativeX; }
+        public Double getRelativeY() { return relativeY; }
+        public boolean isPreciseClickTarget() { return preciseClickTarget; }
     }
 
     public ClickResolution resolve(RuleAction action, String foregroundPackage,
@@ -46,10 +67,15 @@ public class ClickTargetResolver {
         }
 
         List<NodeCandidate> safeCandidates = candidates == null ? Collections.emptyList() : candidates;
-        NodeCandidate candidate = findByViewId(action.getViewId(), safeCandidates);
-        if (candidate == null) candidate = findByText(action.getText(), safeCandidates);
-        if (candidate == null) candidate = findByDescription(action.getContentDescription(), safeCandidates);
-        if (candidate != null) return ClickResolution.node(candidate);
+        NodeCandidate candidate = findByViewId(action, safeCandidates);
+        if (candidate == null) candidate = findByText(action, safeCandidates);
+        if (candidate == null) candidate = findByDescription(action, safeCandidates);
+        if (candidate != null) {
+            if (candidate.isPreciseClickTarget()) return ClickResolution.node(candidate);
+            if (hasValidCoordinates(action)) {
+                return ClickResolution.of(ClickResolution.Decision.GESTURE);
+            }
+        }
 
         long timeoutAt = safeAdd(readyAt, Math.max(1, action.getTimeoutMs()));
         if (nowMs < timeoutAt) {
@@ -63,32 +89,53 @@ public class ClickTargetResolver {
         return ClickResolution.failure("超时前未找到点击目标");
     }
 
-    private NodeCandidate findByViewId(String expected, List<NodeCandidate> candidates) {
+    private NodeCandidate findByViewId(RuleAction action, List<NodeCandidate> candidates) {
+        String expected = action.getViewId();
         if (expected == null) return null;
-        for (NodeCandidate candidate : candidates) {
-            if (candidate != null && candidate.isEnabledAndClickable()
-                    && expected.equals(candidate.getViewId())) return candidate;
-        }
-        return null;
+        return closestMatching(action, candidates,
+                candidate -> expected.equals(candidate.getViewId()));
     }
 
-    private NodeCandidate findByText(String expected, List<NodeCandidate> candidates) {
+    private NodeCandidate findByText(RuleAction action, List<NodeCandidate> candidates) {
+        String expected = action.getText();
         if (expected == null) return null;
-        for (NodeCandidate candidate : candidates) {
-            if (candidate != null && candidate.isEnabledAndClickable()
-                    && expected.equals(candidate.getText())) return candidate;
-        }
-        return null;
+        return closestMatching(action, candidates,
+                candidate -> expected.equals(candidate.getText()));
     }
 
-    private NodeCandidate findByDescription(String expected, List<NodeCandidate> candidates) {
+    private NodeCandidate findByDescription(RuleAction action, List<NodeCandidate> candidates) {
+        String expected = action.getContentDescription();
         if (expected == null) return null;
+        return closestMatching(action, candidates,
+                candidate -> expected.equals(candidate.getContentDescription()));
+    }
+
+    private NodeCandidate closestMatching(RuleAction action, List<NodeCandidate> candidates,
+                                          CandidateMatcher matcher) {
+        NodeCandidate best = null;
+        double bestDistance = Double.MAX_VALUE;
         for (NodeCandidate candidate : candidates) {
             if (candidate != null && candidate.isEnabledAndClickable()
-                    && expected.equals(candidate.getContentDescription())) return candidate;
+                    && matcher.matches(candidate)) {
+                double distance = coordinateDistance(action, candidate);
+                if (best == null || distance < bestDistance) {
+                    best = candidate;
+                    bestDistance = distance;
+                }
+            }
         }
-        return null;
+        return best;
     }
+
+    private double coordinateDistance(RuleAction action, NodeCandidate candidate) {
+        if (!hasValidCoordinates(action) || candidate.getRelativeX() == null
+                || candidate.getRelativeY() == null) return Double.MAX_VALUE;
+        double dx = action.getRelativeX() - candidate.getRelativeX();
+        double dy = action.getRelativeY() - candidate.getRelativeY();
+        return dx * dx + dy * dy;
+    }
+
+    private interface CandidateMatcher { boolean matches(NodeCandidate candidate); }
 
     private boolean hasValidCoordinates(RuleAction action) {
         Double x = action.getRelativeX();
