@@ -25,15 +25,16 @@ public class TouchTracePolicyTest {
     }
 
     @Test
-    public void removesDuplicateIntermediateSamplesButKeepsRelease() {
+    public void preservesStationaryMoveSamplesAndReleaseTiming() {
         List<TouchPoint> trace = policy.normalize(Arrays.asList(
                 new TouchTracePolicy.RawPoint(10, 20, 100),
                 new TouchTracePolicy.RawPoint(10, 20, 120),
                 new TouchTracePolicy.RawPoint(10, 20, 140)), 100, 100);
 
-        assertEquals(2, trace.size());
+        assertEquals(3, trace.size());
         assertEquals(0L, trace.get(0).getElapsedMs());
-        assertEquals(40L, trace.get(1).getElapsedMs());
+        assertEquals(20L, trace.get(1).getElapsedMs());
+        assertEquals(40L, trace.get(2).getElapsedMs());
     }
 
     @Test(expected = IllegalArgumentException.class)

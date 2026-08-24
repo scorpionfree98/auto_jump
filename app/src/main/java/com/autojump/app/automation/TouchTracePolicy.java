@@ -55,17 +55,14 @@ public final class TouchTracePolicy {
     }
 
     private List<RawPoint> compact(List<RawPoint> samples) {
-        List<RawPoint> result = new ArrayList<>();
+        if (samples.size() <= MAX_POINTS) return new ArrayList<>(samples);
+        List<RawPoint> result = new ArrayList<>(MAX_POINTS);
         result.add(samples.get(0));
         int lastIndex = samples.size() - 1;
         int stride = Math.max(1, (samples.size() - 2 + MAX_POINTS - 3) / (MAX_POINTS - 2));
-        RawPoint lastKept = samples.get(0);
-        for (int index = 1; index < lastIndex; index += stride) {
-            RawPoint point = samples.get(index);
-            if (point.getX() != lastKept.getX() || point.getY() != lastKept.getY()) {
-                result.add(point);
-                lastKept = point;
-            }
+        for (int index = 1; index < lastIndex && result.size() < MAX_POINTS - 1;
+             index += stride) {
+            result.add(samples.get(index));
         }
         result.add(samples.get(lastIndex));
         return result;

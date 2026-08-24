@@ -35,6 +35,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private final ClickRecordingPolicy recordingPolicy = new ClickRecordingPolicy();
     private final TouchTracePolicy touchTracePolicy = new TouchTracePolicy();
     private final RecordedTouchResolver recordedTouchResolver = new RecordedTouchResolver();
+    private final RecordedTouchGesturePlan recordedTouchGesturePlan =
+            new RecordedTouchGesturePlan();
     private final ForegroundPackageTracker foregroundTracker = new ForegroundPackageTracker();
     private PendingExecutionStore store;
     private AutomationOrchestrator orchestrator;
@@ -455,6 +457,17 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             listener.onFailed("真实触摸轨迹无效");
             return;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            final List<RecordedTouchGesturePlan.Segment> segments;
+            try {
+                segments = recordedTouchGesturePlan.segments(trace);
+            } catch (IllegalArgumentException error) {
+                listener.onFailed(error.getMessage());
+                return;
+            }
+            dispatchContinuedSegment(segments, 0, null, width, height, listener);
+            return;
+        }
         Path path = new Path();
         TouchPoint first = trace.get(0);
         path.moveTo((float) (first.getRelativeX() * width),
@@ -478,6 +491,48 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             }
         }, handler);
         if (!accepted) listener.onFailed("系统未接受真实触摸回放");
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private void dispatchContinuedSegment(List<RecordedTouchGesturePlan.Segment> segments,
+                                          int index,
+                                          GestureDescription.StrokeDescription previousStroke,
+                                          int width, int height,
+                                          GestureDispatchListener listener) {
+        if (index < 0 || index >= segments.size()) {
+            listener.onCompleted();
+            return;
+        }
+        RecordedTouchGesturePlan.Segment segment = segments.get(index);
+        Path path = new Path();
+        path.moveTo((float) (segment.getStart().getRelativeX() * width),
+                (float) (segment.getStart().getRelativeY() * height));
+        path.lineTo((float) (segment.getEnd().getRelativeX() * width),
+                (float) (segment.getEnd().getRelativeY() * height));
+        boolean willContinue = index < segments.size() - 1;
+        GestureDescription.StrokeDescription stroke = previousStroke == null
+                ? new GestureDescription.StrokeDescription(path, 0,
+                        segment.getDurationMs(), willContinue)
+                : previousStroke.continueStroke(path, 0,
+                        segment.getDurationMs(), willContinue);
+        GestureDescription gesture = new GestureDescription.Builder()
+                .addStroke(stroke)
+                .build();
+        boolean accepted = dispatchGesture(gesture, new GestureResultCallback() {
+            @Override public void onCompleted(GestureDescription gestureDescription) {
+                if (willContinue) {
+                    dispatchContinuedSegment(segments, index + 1, stroke,
+                            width, height, listener);
+                } else {
+                    listener.onCompleted();
+                }
+            }
+
+            @Override public void onCancelled(GestureDescription gestureDescription) {
+                listener.onFailed("真实触摸分段回放被系统取消");
+            }
+        }, handler);
+        if (!accepted) listener.onFailed("系统未接受真实触摸分段回放");
     }
 
     private String packageVersion(String packageName) {
