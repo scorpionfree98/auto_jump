@@ -71,10 +71,10 @@ public class ClickTargetResolver {
         if (candidate == null) candidate = findByText(action, safeCandidates);
         if (candidate == null) candidate = findByDescription(action, safeCandidates);
         if (candidate != null) {
-            if (candidate.isPreciseClickTarget()) return ClickResolution.node(candidate);
             if (hasValidCoordinates(action)) {
                 return ClickResolution.gesture(candidate);
             }
+            if (candidate.isPreciseClickTarget()) return ClickResolution.node(candidate);
         }
 
         long timeoutAt = safeAdd(readyAt, Math.max(1, action.getTimeoutMs()));

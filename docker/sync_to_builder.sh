@@ -20,7 +20,7 @@ echo "==> 准备远程构建目录"
 ssh "$REMOTE_HOST" "mkdir -p '$REMOTE_DIR'"
 
 echo "==> 同步源码到 $REMOTE_HOST:$REMOTE_DIR"
-rsync -az \
+rsync -az --delete \
     --exclude '.git' \
     --exclude '.gradle' \
     --exclude '.idea' \

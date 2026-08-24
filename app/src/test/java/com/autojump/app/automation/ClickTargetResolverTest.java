@@ -19,7 +19,7 @@ public class ClickTargetResolverTest {
         ClickTargetResolver.NodeCandidate text = candidate("text", null, "提交", null);
         ClickTargetResolver.NodeCandidate id = candidate("id", "com.example:id/submit", null, null);
         ClickResolution result = resolver.resolve(action(), "com.example", Arrays.asList(text, id), 1000, 3000);
-        assertEquals(ClickResolution.Decision.NODE, result.getDecision());
+        assertEquals(ClickResolution.Decision.GESTURE, result.getDecision());
         assertEquals("id", result.getCandidate().getKey());
     }
 
@@ -71,8 +71,20 @@ public class ClickTargetResolverTest {
                 "primary-button", null, "提交", null, 0.50, 0.75);
         ClickResolution result = resolver.resolve(action(), "com.example",
                 Arrays.asList(bottomTab, primaryButton), 1000, 3000);
-        assertEquals(ClickResolution.Decision.NODE, result.getDecision());
+        assertEquals(ClickResolution.Decision.GESTURE, result.getDecision());
         assertEquals("primary-button", result.getCandidate().getKey());
+    }
+
+    @Test public void preciseNodeWithoutRecordedCoordinatesUsesNodeAction() {
+        RuleAction noCoordinates = RuleAction.click("com.example", 1000, 5000, 500,
+                "com.example:id/submit", null, null, null, null);
+        ClickTargetResolver.NodeCandidate precise = candidate(
+                "precise", "com.example:id/submit", null, null);
+
+        ClickResolution result = resolver.resolve(noCoordinates, "com.example",
+                Collections.singletonList(precise), 1000, 3000);
+
+        assertEquals(ClickResolution.Decision.NODE, result.getDecision());
     }
 
     @Test public void firstMatchRemainsFallbackWithoutCandidateCoordinates() {
