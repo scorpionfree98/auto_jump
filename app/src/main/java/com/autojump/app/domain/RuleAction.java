@@ -1,6 +1,9 @@
 package com.autojump.app.domain;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 /** A deterministic action configured by the user. */
@@ -21,6 +24,11 @@ public class RuleAction implements Serializable {
     private long timeoutMs = DEFAULT_TIMEOUT_MS;
     private long retryIntervalMs = DEFAULT_RETRY_MS;
     private boolean continueOnFailure;
+    private List<TouchPoint> touchTrace;
+    private int recordedDisplayWidth;
+    private int recordedDisplayHeight;
+    private int recordedOrientation;
+    private String targetAppVersion;
 
     private RuleAction(ActionType type) {
         this.type = type;
@@ -57,6 +65,46 @@ public class RuleAction implements Serializable {
             throw new IllegalArgumentException("点击动作至少需要一个控件特征或坐标");
         }
         return action;
+    }
+
+    public static RuleAction recordedTouch(String targetPackage, long delayBeforeMs, long timeoutMs,
+                                           int displayWidth, int displayHeight, int orientation,
+                                           String targetAppVersion, List<TouchPoint> trace) {
+        RuleAction action = new RuleAction(ActionType.RECORDED_TOUCH);
+        action.targetPackage = requireText(targetPackage, "目标应用包名不能为空");
+        action.delayBeforeMs = requireNonNegative(delayBeforeMs, "点击延迟不能为负数");
+        action.timeoutMs = requirePositive(timeoutMs, "点击超时必须大于 0");
+        if (displayWidth <= 0 || displayHeight <= 0) {
+            throw new IllegalArgumentException("录制屏幕尺寸无效");
+        }
+        action.recordedDisplayWidth = displayWidth;
+        action.recordedDisplayHeight = displayHeight;
+        action.recordedOrientation = orientation;
+        action.targetAppVersion = trimToNull(targetAppVersion);
+        action.touchTrace = validateAndCopyTrace(trace);
+        return action;
+    }
+
+    private static List<TouchPoint> validateAndCopyTrace(List<TouchPoint> trace) {
+        if (trace == null || trace.size() < 2) {
+            throw new IllegalArgumentException("真实触摸轨迹至少需要按下和抬起两个点");
+        }
+        List<TouchPoint> copy = new ArrayList<>(trace.size());
+        long previous = -1;
+        for (TouchPoint point : trace) {
+            if (point == null) throw new IllegalArgumentException("触摸轨迹不能包含空点");
+            TouchPoint validated = new TouchPoint(point.getRelativeX(), point.getRelativeY(),
+                    point.getElapsedMs());
+            if (validated.getElapsedMs() < previous) {
+                throw new IllegalArgumentException("触摸轨迹时间必须单调递增");
+            }
+            previous = validated.getElapsedMs();
+            copy.add(validated);
+        }
+        if (copy.get(copy.size() - 1).getElapsedMs() <= copy.get(0).getElapsedMs()) {
+            throw new IllegalArgumentException("触摸轨迹必须具有有效时长");
+        }
+        return copy;
     }
 
     private static void validateCoordinates(Double x, Double y) {
@@ -107,6 +155,10 @@ public class RuleAction implements Serializable {
                     : String.format(Locale.US, "坐标 %.3f, %.3f", relativeX, relativeY);
             return "等待 " + delayBeforeMs + "ms 后点击 " + target;
         }
+        if (type == ActionType.RECORDED_TOUCH) {
+            return "等待 " + delayBeforeMs + "ms 后回放真实触摸（"
+                    + getTouchDurationMs() + "ms，" + getTouchTrace().size() + "点）";
+        }
         return "未知动作";
     }
 
@@ -136,4 +188,17 @@ public class RuleAction implements Serializable {
     public void setRetryIntervalMs(long retryIntervalMs) { this.retryIntervalMs = retryIntervalMs; }
     public boolean isContinueOnFailure() { return continueOnFailure; }
     public void setContinueOnFailure(boolean continueOnFailure) { this.continueOnFailure = continueOnFailure; }
+    public List<TouchPoint> getTouchTrace() {
+        if (touchTrace == null) return Collections.emptyList();
+        return Collections.unmodifiableList(touchTrace);
+    }
+    public long getTouchDurationMs() {
+        List<TouchPoint> trace = getTouchTrace();
+        return trace.size() < 2 ? 0 : trace.get(trace.size() - 1).getElapsedMs()
+                - trace.get(0).getElapsedMs();
+    }
+    public int getRecordedDisplayWidth() { return recordedDisplayWidth; }
+    public int getRecordedDisplayHeight() { return recordedDisplayHeight; }
+    public int getRecordedOrientation() { return recordedOrientation; }
+    public String getTargetAppVersion() { return targetAppVersion; }
 }

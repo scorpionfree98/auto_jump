@@ -5,6 +5,7 @@ import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.ConditionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.domain.RuleCondition;
+import com.autojump.app.domain.TouchPoint;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -15,7 +16,7 @@ public class RuleJsonCodecTest {
     private final RuleJsonCodec codec = new RuleJsonCodec();
 
     @Test
-    public void schemaV3RoundTripsTypedConditionsActionsAndUnlockPreference() {
+    public void schemaV4RoundTripsTypedConditionsActionsAndUnlockPreference() {
         Rule rule = new Rule("rule-1", "工作日打卡");
         rule.setRequestUnlockBeforeRun(true);
         rule.setConditions(Arrays.asList(
@@ -29,11 +30,43 @@ public class RuleJsonCodecTest {
         String json = codec.encode(Arrays.asList(rule));
         List<Rule> decoded = codec.decode(json);
 
-        assertTrue(json.contains("\"schemaVersion\": 3"));
+        assertTrue(json.contains("\"schemaVersion\": 4"));
         assertTrue(decoded.get(0).isRequestUnlockBeforeRun());
         assertEquals(ConditionType.WIFI, decoded.get(0).getConditions().get(1).getType());
         assertEquals(ActionType.CLICK, decoded.get(0).getActions().get(1).getType());
         assertEquals("com.example:id/check_in", decoded.get(0).getActions().get(1).getViewId());
+    }
+
+    @Test
+    public void schemaV4RoundTripsRecordedTouchTrace() {
+        Rule rule = new Rule("touch", "真实触摸");
+        rule.setActions(Arrays.asList(RuleAction.recordedTouch("com.example", 800, 6000,
+                1440, 3200, 1, "7.0.1", Arrays.asList(
+                        new TouchPoint(0.5, 0.75, 0),
+                        new TouchPoint(0.502, 0.751, 73),
+                        new TouchPoint(0.5, 0.75, 161)))));
+
+        List<Rule> decoded = codec.decode(codec.encode(Arrays.asList(rule)));
+        RuleAction action = decoded.get(0).getActions().get(0);
+
+        assertEquals(ActionType.RECORDED_TOUCH, action.getType());
+        assertEquals(3, action.getTouchTrace().size());
+        assertEquals(161L, action.getTouchDurationMs());
+        assertEquals(3200, action.getRecordedDisplayHeight());
+        assertEquals("7.0.1", action.getTargetAppVersion());
+    }
+
+    @Test
+    public void stillReadsSchemaV3CoordinateClick() {
+        String v3 = "{\"schemaVersion\":3,\"rules\":[{\"id\":\"old\"," +
+                "\"name\":\"旧点击\",\"actions\":[{\"type\":\"CLICK\"," +
+                "\"targetPackage\":\"com.example\",\"relativeX\":0.5," +
+                "\"relativeY\":0.7,\"timeoutMs\":5000,\"retryIntervalMs\":250}]}]}";
+
+        RuleAction action = codec.decode(v3).get(0).getActions().get(0);
+
+        assertEquals(ActionType.CLICK, action.getType());
+        assertEquals(0.5, action.getRelativeX(), 0.0001);
     }
 
     @Test

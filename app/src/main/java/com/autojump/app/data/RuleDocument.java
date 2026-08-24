@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RuleDocument {
-    public static final int CURRENT_SCHEMA_VERSION = 3;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
 
     private int schemaVersion = CURRENT_SCHEMA_VERSION;
     private List<Rule> rules = new ArrayList<>();
