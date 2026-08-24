@@ -31,6 +31,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private final Map<String, Runnable> scheduled = new HashMap<>();
     private final ClickTargetResolver resolver = new ClickTargetResolver();
     private final AccessibilityNodeFinder nodeFinder = new AccessibilityNodeFinder();
+    private final ClickTargetPrecisionPolicy precisionPolicy =
+            new ClickTargetPrecisionPolicy();
     private final ClickRecordingPolicy recordingPolicy = new ClickRecordingPolicy();
     private final ForegroundPackageTracker foregroundTracker = new ForegroundPackageTracker();
     private PendingExecutionStore store;
@@ -358,7 +360,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         Path path = new Path();
         path.moveTo(x, y);
         GestureDescription gesture = new GestureDescription.Builder()
-                .addStroke(new GestureDescription.StrokeDescription(path, 0, 80))
+                .addStroke(new GestureDescription.StrokeDescription(
+                        path, 0, precisionPolicy.gestureDurationMs()))
                 .build();
         session.setStatus(ExecutionSession.Status.RUNNING);
         store.upsert(session);

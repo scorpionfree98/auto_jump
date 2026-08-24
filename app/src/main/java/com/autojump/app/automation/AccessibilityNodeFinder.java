@@ -12,6 +12,9 @@ import java.util.List;
 /** Converts the current accessibility tree into bounded, non-sensitive click candidates. */
 public class AccessibilityNodeFinder {
     private static final int MAX_NODES = 500;
+    private static final int MAX_ANCESTOR_DEPTH = 16;
+    private final ClickTargetPrecisionPolicy precisionPolicy =
+            new ClickTargetPrecisionPolicy();
 
     public static class NodeMatch {
         private final ClickTargetResolver.NodeCandidate candidate;
@@ -56,7 +59,8 @@ public class AccessibilityNodeFinder {
                     clickable.isEnabled() && clickable.isVisibleToUser() && clickable.isClickable(),
                     (double) sourceBounds.exactCenterX() / displayWidth,
                     (double) sourceBounds.exactCenterY() / displayHeight,
-                    isPreciseClickTarget(node, clickable, bounds, displayWidth, displayHeight)),
+                    isPreciseClickTarget(node, clickable, bounds, displayWidth, displayHeight,
+                            isInsideWebView(node))),
                     clickable));
         }
         return matches;
@@ -99,12 +103,23 @@ public class AccessibilityNodeFinder {
 
     private boolean isPreciseClickTarget(AccessibilityNodeInfo source,
                                          AccessibilityNodeInfo clickable, Rect clickableBounds,
-                                         int displayWidth, int displayHeight) {
-        if (source == clickable) return true;
+                                         int displayWidth, int displayHeight,
+                                         boolean insideWebView) {
         double clickableArea = Math.max(0, clickableBounds.width())
                 * (double) Math.max(0, clickableBounds.height());
         double displayArea = displayWidth * (double) displayHeight;
-        return displayArea > 0 && clickableArea / displayArea <= 0.35d;
+        double clickableAreaRatio = displayArea <= 0 ? 1d : clickableArea / displayArea;
+        return precisionPolicy.isPrecise(source == clickable, clickableAreaRatio, insideWebView);
+    }
+
+    private boolean isInsideWebView(AccessibilityNodeInfo node) {
+        AccessibilityNodeInfo current = node;
+        for (int depth = 0; current != null && depth < MAX_ANCESTOR_DEPTH; depth++) {
+            CharSequence className = current.getClassName();
+            if (className != null && className.toString().endsWith("WebView")) return true;
+            current = current.getParent();
+        }
+        return false;
     }
 
     private String text(CharSequence value) {
