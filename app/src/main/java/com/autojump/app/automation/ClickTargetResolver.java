@@ -73,7 +73,7 @@ public class ClickTargetResolver {
         if (candidate != null) {
             if (candidate.isPreciseClickTarget()) return ClickResolution.node(candidate);
             if (hasValidCoordinates(action)) {
-                return ClickResolution.of(ClickResolution.Decision.GESTURE);
+                return ClickResolution.gesture(candidate);
             }
         }
 

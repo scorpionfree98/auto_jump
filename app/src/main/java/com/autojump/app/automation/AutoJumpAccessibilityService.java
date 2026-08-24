@@ -316,7 +316,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 clickNode(session, node, now);
                 break;
             case GESTURE:
-                clickCoordinate(session, action, now);
+                clickCoordinate(session, action, resolution.getCandidate(), now);
                 break;
             case FAIL:
                 fail(session, resolution.getMessage(), now);
@@ -336,14 +336,21 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     }
 
     @TargetApi(Build.VERSION_CODES.N)
-    private void clickCoordinate(ExecutionSession session, RuleAction action, long now) {
+    private void clickCoordinate(ExecutionSession session, RuleAction action,
+                                 ClickTargetResolver.NodeCandidate liveCandidate, long now) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             fail(session, "Android 7.0 以下不支持坐标手势", now);
             return;
         }
         DisplayMetrics metrics = getResources().getDisplayMetrics();
-        float x = (float) (action.getRelativeX() * metrics.widthPixels);
-        float y = (float) (action.getRelativeY() * metrics.heightPixels);
+        double relativeX = action.getRelativeX();
+        double relativeY = action.getRelativeY();
+        if (hasValidCandidateCoordinates(liveCandidate)) {
+            relativeX = liveCandidate.getRelativeX();
+            relativeY = liveCandidate.getRelativeY();
+        }
+        float x = (float) (relativeX * metrics.widthPixels);
+        float y = (float) (relativeY * metrics.heightPixels);
         Path path = new Path();
         path.moveTo(x, y);
         GestureDescription gesture = new GestureDescription.Builder()
@@ -362,6 +369,13 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             }
         }, handler);
         if (!accepted) fail(session, "系统未接受坐标点击", now);
+    }
+
+    private boolean hasValidCandidateCoordinates(ClickTargetResolver.NodeCandidate candidate) {
+        if (candidate == null || candidate.getRelativeX() == null
+                || candidate.getRelativeY() == null) return false;
+        return candidate.getRelativeX() >= 0d && candidate.getRelativeX() <= 1d
+                && candidate.getRelativeY() >= 0d && candidate.getRelativeY() <= 1d;
     }
 
     private void completeAction(String sessionId) {

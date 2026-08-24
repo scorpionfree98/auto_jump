@@ -85,10 +85,12 @@ public class ClickTargetResolverTest {
 
     @Test public void gestureIsUsedForImpreciseContainerMatch() {
         ClickTargetResolver.NodeCandidate canvasText = new ClickTargetResolver.NodeCandidate(
-                "canvas-text", null, "提交", null, true, 0.5, 0.75, false);
+                "canvas-text", null, "提交", null, true, 0.5, 0.47, false);
         ClickResolution result = resolver.resolve(action(), "com.example",
                 Collections.singletonList(canvasText), 1000, 3000);
         assertEquals(ClickResolution.Decision.GESTURE, result.getDecision());
+        assertEquals("canvas-text", result.getCandidate().getKey());
+        assertEquals(0.47, result.getCandidate().getRelativeY(), 0.0001);
     }
 
     private RuleAction action() {

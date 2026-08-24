@@ -24,6 +24,10 @@ public class ClickResolution {
         return new ClickResolution(Decision.NODE, candidate, 0, null);
     }
 
+    public static ClickResolution gesture(ClickTargetResolver.NodeCandidate candidate) {
+        return new ClickResolution(Decision.GESTURE, candidate, 0, null);
+    }
+
     public static ClickResolution scheduled(Decision decision, long nextCheckAtMs) {
         return new ClickResolution(decision, null, nextCheckAtMs, null);
     }
