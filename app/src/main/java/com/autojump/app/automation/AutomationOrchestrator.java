@@ -15,6 +15,7 @@ public class AutomationOrchestrator {
     private static final String TAG = "AutomationOrchestrator";
     private final PendingExecutionStore store;
     private final ExecutionLogStore logs;
+    private final ExecutionSessionPolicy sessionPolicy = new ExecutionSessionPolicy();
 
     public AutomationOrchestrator(Context context) {
         store = new PendingExecutionStore(context);
@@ -22,6 +23,13 @@ public class AutomationOrchestrator {
     }
 
     public ExecutionSession enqueue(Context context, Rule rule) {
+        ExecutionSession active = sessionPolicy.findActiveForRule(store.getAll(), rule.getId());
+        if (active != null) {
+            if (active.isRequestUnlockBeforeRun() && isKeyguardLocked(context)) {
+                launchUnlock(context, active);
+            }
+            return active;
+        }
         long now = System.currentTimeMillis();
         ExecutionSession session = ExecutionSession.fromRule(rule, now);
         store.upsert(session);
@@ -30,14 +38,7 @@ public class AutomationOrchestrator {
             session.setStatus(ExecutionSession.Status.WAITING);
             store.upsert(session);
             logs.append(session, "WAITING", "等待系统解锁");
-            Intent unlock = new Intent(context, UnlockGateActivity.class);
-            unlock.putExtra(UnlockGateActivity.EXTRA_SESSION_ID, session.getId());
-            unlock.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            try {
-                context.startActivity(unlock);
-            } catch (RuntimeException error) {
-                logs.append(session, "WAITING", "系统限制了锁屏解锁界面的启动，请解锁后重试");
-            }
+            launchUnlock(context, session);
             return session;
         }
         continueUntilExternalEvent(context, session, now);
@@ -131,5 +132,16 @@ public class AutomationOrchestrator {
     private boolean isKeyguardLocked(Context context) {
         KeyguardManager manager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
         return manager != null && manager.isKeyguardLocked();
+    }
+
+    private void launchUnlock(Context context, ExecutionSession session) {
+        Intent unlock = new Intent(context, UnlockGateActivity.class);
+        unlock.putExtra(UnlockGateActivity.EXTRA_SESSION_ID, session.getId());
+        unlock.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        try {
+            context.startActivity(unlock);
+        } catch (RuntimeException error) {
+            logs.append(session, "WAITING", "系统限制了解锁界面启动，任务将在解锁后自动继续");
+        }
     }
 }

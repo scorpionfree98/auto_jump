@@ -68,7 +68,7 @@
             android:launchMode="singleTop"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:theme="@style/Theme.AutoJump" />
+            android:theme="@style/Theme.AutoJumpTransparent" />
 
         <!-- 权限引导页 -->
         <activity
