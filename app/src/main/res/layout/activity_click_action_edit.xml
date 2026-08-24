@@ -22,7 +22,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="优先按控件特征查找；目标应用之外不会执行。"
+            android:text="推荐录制真实触摸；旧版控件定位仅用于兼容已有规则。"
             android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
         <com.google.android.material.card.MaterialCardView
@@ -310,8 +310,17 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="仅录制阶段显示开始悬浮窗；测试和实际执行仍然全自动。"
+                    android:text="点击开始后会捕获你下一次真实触摸并立即回放；测试和实际执行不会显示悬浮窗。"
                     android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <TextView
+                    android:id="@+id/tv_touch_trace_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="尚未录制真实触摸轨迹"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption"
+                    android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.AutoJump.TextInputLayout"

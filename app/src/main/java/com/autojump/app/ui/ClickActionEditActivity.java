@@ -17,6 +17,8 @@ import com.autojump.app.R;
 import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.automation.ClickRecordingStore;
 import com.autojump.app.automation.RecordedClick;
+import com.autojump.app.automation.RecordedTouch;
+import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.util.SPUtil;
 import com.google.gson.Gson;
@@ -29,6 +31,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     public static final String EXTRA_RESULT_ACTION_JSON = "result_action_json";
     private static final String STATE_REQUEST_ID = "record_request_id";
     private static final String STATE_DRAFT_ID = "draft_action_id";
+    private static final String STATE_RECORDED_ACTION = "recorded_touch_action";
 
     private EditText targetPackage;
     private EditText delay;
@@ -42,11 +45,13 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private EditText recordingDeeplink;
     private SwitchCompat continueOnFailure;
     private TextView serviceStatus;
+    private TextView touchTraceStatus;
 
     private final Gson gson = new Gson();
     private ClickRecordingStore recordingStore;
     private String requestId;
     private String draftActionId;
+    private RuleAction recordedTouchAction;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +71,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         recordingDeeplink = findViewById(R.id.et_recording_deeplink);
         continueOnFailure = findViewById(R.id.switch_continue_on_failure);
         serviceStatus = findViewById(R.id.tv_service_status);
+        touchTraceStatus = findViewById(R.id.tv_touch_trace_status);
         Button openSettings = findViewById(R.id.btn_open_accessibility_settings);
         Button record = findViewById(R.id.btn_record_click);
         Button save = findViewById(R.id.btn_save_click_action);
@@ -74,6 +80,12 @@ public class ClickActionEditActivity extends AppCompatActivity {
         draftActionId = savedInstanceState == null
                 ? UUID.randomUUID().toString() : savedInstanceState.getString(STATE_DRAFT_ID);
         requestId = savedInstanceState == null ? null : savedInstanceState.getString(STATE_REQUEST_ID);
+        if (savedInstanceState != null) {
+            String savedAction = savedInstanceState.getString(STATE_RECORDED_ACTION);
+            if (!TextUtils.isEmpty(savedAction)) {
+                recordedTouchAction = gson.fromJson(savedAction, RuleAction.class);
+            }
+        }
 
         if (savedInstanceState == null) {
             String suggestedDeeplink = getIntent().getStringExtra(EXTRA_RECORDING_DEEPLINK);
@@ -99,6 +111,9 @@ public class ClickActionEditActivity extends AppCompatActivity {
         super.onSaveInstanceState(outState);
         outState.putString(STATE_DRAFT_ID, draftActionId);
         outState.putString(STATE_REQUEST_ID, requestId);
+        if (recordedTouchAction != null) {
+            outState.putString(STATE_RECORDED_ACTION, gson.toJson(recordedTouchAction));
+        }
     }
 
     @Override
@@ -167,8 +182,13 @@ public class ClickActionEditActivity extends AppCompatActivity {
         ClickRecordingStore.State state = recordingStore.get();
         if (!requestId.equals(state.getRequestId())) return;
         if (state.getStatus() == ClickRecordingStore.Status.CAPTURED) {
-            populate(state.getRecordedClick());
-            Toast.makeText(this, "已记录目标点击", Toast.LENGTH_SHORT).show();
+            if (state.getRecordedTouch() != null) {
+                populate(state.getRecordedTouch());
+                Toast.makeText(this, "已记录真实触摸轨迹", Toast.LENGTH_SHORT).show();
+            } else {
+                populate(state.getRecordedClick());
+                Toast.makeText(this, "已读取旧版点击记录", Toast.LENGTH_SHORT).show();
+            }
             clearRecordingRequest();
         } else if (state.getStatus() == ClickRecordingStore.Status.REJECTED
                 || state.getStatus() == ClickRecordingStore.Status.EXPIRED) {
@@ -195,6 +215,23 @@ public class ClickActionEditActivity extends AppCompatActivity {
         delay.setText(String.valueOf(click.getDelayBeforeMs()));
     }
 
+    private void populate(RecordedTouch touch) {
+        if (touch == null) return;
+        recordedTouchAction = RuleAction.recordedTouch(touch.getTargetPackage(),
+                touch.getDelayBeforeMs(), RuleAction.DEFAULT_TIMEOUT_MS,
+                touch.getDisplayWidth(), touch.getDisplayHeight(), touch.getOrientation(),
+                touch.getTargetAppVersion(), touch.getTrace());
+        setText(targetPackage, touch.getTargetPackage());
+        delay.setText(String.valueOf(touch.getDelayBeforeMs()));
+        timeout.setText(String.valueOf(RuleAction.DEFAULT_TIMEOUT_MS));
+        viewId.setText("");
+        targetText.setText("");
+        contentDescription.setText("");
+        relativeX.setText("");
+        relativeY.setText("");
+        updateTouchTraceStatus();
+    }
+
     private void populate(RuleAction action) {
         if (action == null) return;
         setText(targetPackage, action.getTargetPackage());
@@ -207,18 +244,46 @@ public class ClickActionEditActivity extends AppCompatActivity {
         if (action.getRelativeX() != null) relativeX.setText(String.valueOf(action.getRelativeX()));
         if (action.getRelativeY() != null) relativeY.setText(String.valueOf(action.getRelativeY()));
         continueOnFailure.setChecked(action.isContinueOnFailure());
+        if (action.getType() == ActionType.RECORDED_TOUCH) {
+            recordedTouchAction = action;
+            updateTouchTraceStatus();
+        }
+    }
+
+    private void updateTouchTraceStatus() {
+        if (recordedTouchAction == null) {
+            touchTraceStatus.setText("尚未录制真实触摸轨迹");
+            return;
+        }
+        touchTraceStatus.setText("已录制真实触摸："
+                + recordedTouchAction.getTouchDurationMs() + "ms · "
+                + recordedTouchAction.getTouchTrace().size() + " 个轨迹点 · "
+                + recordedTouchAction.getRecordedDisplayWidth() + "×"
+                + recordedTouchAction.getRecordedDisplayHeight());
     }
 
     private void saveAction() {
         try {
-            RuleAction action = RuleAction.click(
-                    requiredText(targetPackage, "请输入目标应用包名"),
-                    parseLong(delay, "点击延迟"),
-                    parseLong(timeout, "点击超时"),
-                    parseLong(retry, "重试间隔"),
-                    text(viewId), text(targetText), text(contentDescription),
-                    parseNullableDouble(relativeX, "相对 X"),
-                    parseNullableDouble(relativeY, "相对 Y"));
+            RuleAction action;
+            if (recordedTouchAction != null) {
+                action = RuleAction.recordedTouch(
+                        requiredText(targetPackage, "请输入目标应用包名"),
+                        parseLong(delay, "点击延迟"), parseLong(timeout, "点击超时"),
+                        recordedTouchAction.getRecordedDisplayWidth(),
+                        recordedTouchAction.getRecordedDisplayHeight(),
+                        recordedTouchAction.getRecordedOrientation(),
+                        recordedTouchAction.getTargetAppVersion(),
+                        recordedTouchAction.getTouchTrace());
+            } else {
+                action = RuleAction.click(
+                        requiredText(targetPackage, "请输入目标应用包名"),
+                        parseLong(delay, "点击延迟"),
+                        parseLong(timeout, "点击超时"),
+                        parseLong(retry, "重试间隔"),
+                        text(viewId), text(targetText), text(contentDescription),
+                        parseNullableDouble(relativeX, "相对 X"),
+                        parseNullableDouble(relativeY, "相对 Y"));
+            }
             action.setContinueOnFailure(continueOnFailure.isChecked());
             Intent result = new Intent();
             result.putExtra(EXTRA_RESULT_ACTION_JSON, gson.toJson(action));

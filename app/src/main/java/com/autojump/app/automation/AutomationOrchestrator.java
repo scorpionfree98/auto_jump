@@ -66,7 +66,9 @@ public class AutomationOrchestrator {
             store.remove(session.getId());
             return;
         }
-        if (action.getType() != ActionType.CLICK && action.getDelayBeforeMs() > 0) {
+        boolean externallyDispatched = action.getType() == ActionType.CLICK
+                || action.getType() == ActionType.RECORDED_TOUCH;
+        if (!externallyDispatched && action.getDelayBeforeMs() > 0) {
             if (session.getNotBefore() == 0) {
                 session.setNotBefore(now + action.getDelayBeforeMs());
                 session.setStatus(ExecutionSession.Status.WAITING);
@@ -88,7 +90,7 @@ public class AutomationOrchestrator {
             store.upsert(session);
             return;
         }
-        if (action.getType() == ActionType.CLICK) {
+        if (externallyDispatched) {
             session.setStatus(ExecutionSession.Status.WAITING);
             store.upsert(session);
             return;

@@ -314,7 +314,8 @@ public class RuleEditActivity extends AppCompatActivity {
         RuleAction action = rule.getActions().get(index);
         if (action.getType() == ActionType.DEEPLINK) showDeeplinkDialog(index);
         else if (action.getType() == ActionType.WAIT) showWaitDialog(index);
-        else if (action.getType() == ActionType.CLICK) launchClickEditor(index);
+        else if (action.getType() == ActionType.CLICK
+                || action.getType() == ActionType.RECORDED_TOUCH) launchClickEditor(index);
     }
 
     private void showDeeplinkDialog(int index) {
@@ -381,7 +382,8 @@ public class RuleEditActivity extends AppCompatActivity {
         try {
             String json = data.getStringExtra(ClickActionEditActivity.EXTRA_RESULT_ACTION_JSON);
             RuleAction action = gson.fromJson(json, RuleAction.class);
-            if (action == null || action.getType() != ActionType.CLICK) {
+            if (action == null || (action.getType() != ActionType.CLICK
+                    && action.getType() != ActionType.RECORDED_TOUCH)) {
                 throw new IllegalArgumentException("点击动作数据无效");
             }
             replaceOrAddAction(pendingActionIndex, action);

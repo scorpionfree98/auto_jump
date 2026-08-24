@@ -22,6 +22,11 @@ public final class ClickDispatchResult {
         return GESTURE;
     }
 
+    public static ClickDispatchResult recordedTouch(long durationMs, int pointCount) {
+        return new ClickDispatchResult("真实触摸轨迹已发送（" + durationMs + "ms，"
+                + pointCount + "点）");
+    }
+
     public String getStatus() {
         return STATUS;
     }

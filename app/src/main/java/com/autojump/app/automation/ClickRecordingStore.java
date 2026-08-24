@@ -6,7 +6,9 @@ import com.google.gson.Gson;
 import java.util.UUID;
 
 public class ClickRecordingStore {
-    public enum Status { IDLE, WAITING_START, ARMED, CAPTURED, EXPIRED, REJECTED }
+    public enum Status {
+        IDLE, WAITING_START, ARMED, REPLAYING, CONFIRMING, CAPTURED, EXPIRED, REJECTED
+    }
 
     public static class State {
         private Status status = Status.IDLE;
@@ -18,6 +20,8 @@ public class ClickRecordingStore {
         private String deeplink;
         private String targetPackage;
         private RecordedClick recordedClick;
+        private RecordedTouch recordedTouch;
+        private RecordedTouch pendingRecordedTouch;
         private String rejectionReason;
 
         public Status getStatus() { return status == null ? Status.IDLE : status; }
@@ -29,6 +33,7 @@ public class ClickRecordingStore {
         public String getDeeplink() { return deeplink; }
         public String getTargetPackage() { return targetPackage; }
         public RecordedClick getRecordedClick() { return recordedClick; }
+        public RecordedTouch getRecordedTouch() { return recordedTouch; }
         public String getRejectionReason() { return rejectionReason; }
     }
 
@@ -105,10 +110,74 @@ public class ClickRecordingStore {
         }
     }
 
+    public State beginReplay(String requestId) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.ARMED || requestId == null
+                    || !requestId.equals(state.getRequestId())) return state;
+            state.status = Status.REPLAYING;
+            save(state);
+            return state;
+        }
+    }
+
+    public void capture(RecordedTouch touch) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.REPLAYING || touch == null
+                    || !state.getRequestId().equals(touch.getRequestId())) return;
+            state.status = Status.CAPTURED;
+            state.recordedTouch = touch;
+            save(state);
+        }
+    }
+
+    public State beginConfirmation(RecordedTouch touch) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.REPLAYING || touch == null
+                    || !state.getRequestId().equals(touch.getRequestId())) return state;
+            state.status = Status.CONFIRMING;
+            state.pendingRecordedTouch = touch;
+            save(state);
+            return state;
+        }
+    }
+
+    public State confirm(String requestId) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.CONFIRMING || requestId == null
+                    || !requestId.equals(state.getRequestId())
+                    || state.pendingRecordedTouch == null) return state;
+            state.status = Status.CAPTURED;
+            state.recordedTouch = state.pendingRecordedTouch;
+            state.pendingRecordedTouch = null;
+            save(state);
+            return state;
+        }
+    }
+
+    public State retryCapture(String requestId, long now) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.CONFIRMING || requestId == null
+                    || !requestId.equals(state.getRequestId())) return state;
+            state.status = Status.ARMED;
+            state.startedAt = now;
+            state.expiresAt = now + DEFAULT_TTL_MS;
+            state.pendingRecordedTouch = null;
+            save(state);
+            return state;
+        }
+    }
+
     public void reject(String requestId, Status status, String reason) {
         synchronized (LOCK) {
             State state = get();
             if ((state.getStatus() != Status.ARMED
+                    && state.getStatus() != Status.REPLAYING
+                    && state.getStatus() != Status.CONFIRMING
                     && state.getStatus() != Status.WAITING_START) || requestId == null
                     || !requestId.equals(state.getRequestId())) return;
             state.status = status == Status.EXPIRED ? Status.EXPIRED : Status.REJECTED;
