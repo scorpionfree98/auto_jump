@@ -425,11 +425,13 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 DisplayMetrics metrics = getResources().getDisplayMetrics();
                 session.setStatus(ExecutionSession.Status.RUNNING);
                 store.upsert(session);
-                dispatchRecordedTouch(result.getTrace(), metrics.widthPixels,
-                        metrics.heightPixels, new GestureDispatchListener() {
+                dispatchRecordedTouchRepeated(result.getTrace(), metrics.widthPixels,
+                        metrics.heightPixels, action.getRepeatCount(),
+                        action.getRepeatIntervalMs(), 1, new GestureDispatchListener() {
                             @Override public void onCompleted() {
                                 completeAction(session.getId(), ClickDispatchResult.recordedTouch(
-                                        action.getTouchDurationMs(), action.getTouchTrace().size()));
+                                        action.getTouchDurationMs(), action.getTouchTrace().size(),
+                                        action.getRepeatCount()));
                             }
 
                             @Override public void onFailed(String reason) {
@@ -444,6 +446,27 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private interface GestureDispatchListener {
         void onCompleted();
         void onFailed(String reason);
+    }
+
+    private void dispatchRecordedTouchRepeated(List<TouchPoint> trace, int width, int height,
+                                               int repeatCount, long repeatIntervalMs,
+                                               int currentRepeat,
+                                               GestureDispatchListener listener) {
+        dispatchRecordedTouch(trace, width, height, new GestureDispatchListener() {
+            @Override public void onCompleted() {
+                if (currentRepeat >= repeatCount) {
+                    listener.onCompleted();
+                    return;
+                }
+                handler.postDelayed(() -> dispatchRecordedTouchRepeated(trace, width, height,
+                        repeatCount, repeatIntervalMs, currentRepeat + 1, listener),
+                        repeatIntervalMs);
+            }
+
+            @Override public void onFailed(String reason) {
+                listener.onFailed(reason);
+            }
+        });
     }
 
     @TargetApi(Build.VERSION_CODES.N)

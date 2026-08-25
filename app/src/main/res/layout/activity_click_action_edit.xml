@@ -322,6 +322,44 @@
                     android:textAppearance="@style/TextAppearance.AutoJump.Caption"
                     android:textStyle="bold" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.AutoJump.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="正式回放次数">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_repeat_count"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:text="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.AutoJump.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:hint="两次间隔 ms">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_repeat_interval"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:text="800" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.AutoJump.TextInputLayout"
                     android:layout_width="match_parent"

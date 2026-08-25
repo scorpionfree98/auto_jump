@@ -10,6 +10,8 @@ import java.util.Locale;
 public class RuleAction implements Serializable {
     public static final long DEFAULT_TIMEOUT_MS = 15_000L;
     public static final long DEFAULT_RETRY_MS = 500L;
+    public static final int DEFAULT_REPEAT_COUNT = 1;
+    public static final long DEFAULT_REPEAT_INTERVAL_MS = 800L;
 
     private ActionType type;
     private long delayBeforeMs;
@@ -29,6 +31,8 @@ public class RuleAction implements Serializable {
     private int recordedDisplayHeight;
     private int recordedOrientation;
     private String targetAppVersion;
+    private int repeatCount = DEFAULT_REPEAT_COUNT;
+    private long repeatIntervalMs = DEFAULT_REPEAT_INTERVAL_MS;
 
     private RuleAction(ActionType type) {
         this.type = type;
@@ -156,8 +160,12 @@ public class RuleAction implements Serializable {
             return "等待 " + delayBeforeMs + "ms 后点击 " + target;
         }
         if (type == ActionType.RECORDED_TOUCH) {
+            String repeat = getRepeatCount() > 1
+                    ? "，回放" + getRepeatCount() + "次，间隔" + getRepeatIntervalMs() + "ms"
+                    : "";
             return "等待 " + delayBeforeMs + "ms 后回放真实触摸（"
-                    + getTouchDurationMs() + "ms，" + getTouchTrace().size() + "点）";
+                    + getTouchDurationMs() + "ms，" + getTouchTrace().size() + "点"
+                    + repeat + "）";
         }
         return "未知动作";
     }
@@ -201,4 +209,22 @@ public class RuleAction implements Serializable {
     public int getRecordedDisplayHeight() { return recordedDisplayHeight; }
     public int getRecordedOrientation() { return recordedOrientation; }
     public String getTargetAppVersion() { return targetAppVersion; }
+    public int getRepeatCount() {
+        return repeatCount < 1 ? DEFAULT_REPEAT_COUNT : repeatCount;
+    }
+    public void setRepeatCount(int repeatCount) {
+        if (repeatCount < 1 || repeatCount > 5) {
+            throw new IllegalArgumentException("回放次数必须在 1 到 5 之间");
+        }
+        this.repeatCount = repeatCount;
+    }
+    public long getRepeatIntervalMs() {
+        return repeatIntervalMs < 50 ? DEFAULT_REPEAT_INTERVAL_MS : repeatIntervalMs;
+    }
+    public void setRepeatIntervalMs(long repeatIntervalMs) {
+        if (repeatIntervalMs < 50 || repeatIntervalMs > 10_000) {
+            throw new IllegalArgumentException("回放间隔必须在 50 到 10000ms 之间");
+        }
+        this.repeatIntervalMs = repeatIntervalMs;
+    }
 }

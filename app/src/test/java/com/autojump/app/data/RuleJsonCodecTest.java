@@ -40,11 +40,14 @@ public class RuleJsonCodecTest {
     @Test
     public void schemaV4RoundTripsRecordedTouchTrace() {
         Rule rule = new Rule("touch", "真实触摸");
-        rule.setActions(Arrays.asList(RuleAction.recordedTouch("com.example", 800, 6000,
+        RuleAction repeated = RuleAction.recordedTouch("com.example", 800, 6000,
                 1440, 3200, 1, "7.0.1", Arrays.asList(
                         new TouchPoint(0.5, 0.75, 0),
                         new TouchPoint(0.502, 0.751, 73),
-                        new TouchPoint(0.5, 0.75, 161)))));
+                        new TouchPoint(0.5, 0.75, 161)));
+        repeated.setRepeatCount(2);
+        repeated.setRepeatIntervalMs(800);
+        rule.setActions(Arrays.asList(repeated));
 
         List<Rule> decoded = codec.decode(codec.encode(Arrays.asList(rule)));
         RuleAction action = decoded.get(0).getActions().get(0);
@@ -54,6 +57,8 @@ public class RuleJsonCodecTest {
         assertEquals(161L, action.getTouchDurationMs());
         assertEquals(3200, action.getRecordedDisplayHeight());
         assertEquals("7.0.1", action.getTargetAppVersion());
+        assertEquals(2, action.getRepeatCount());
+        assertEquals(800L, action.getRepeatIntervalMs());
     }
 
     @Test

@@ -19,6 +19,30 @@ public class RecordedTouchActionTest {
         assertEquals(164L, action.getTouchDurationMs());
         assertEquals(1080, action.getRecordedDisplayWidth());
         assertEquals("1.2.3", action.getTargetAppVersion());
+        assertEquals(1, action.getRepeatCount());
+        assertEquals(800L, action.getRepeatIntervalMs());
+    }
+
+    @Test public void configuresBoundedRepeatedReplay() {
+        RuleAction action = RuleAction.recordedTouch("com.example", 500, 5000,
+                1080, 2400, 1, "1.2.3", Arrays.asList(
+                        new TouchPoint(0.50, 0.70, 0),
+                        new TouchPoint(0.50, 0.70, 67)));
+
+        action.setRepeatCount(2);
+        action.setRepeatIntervalMs(800);
+
+        assertEquals(2, action.getRepeatCount());
+        assertEquals(800L, action.getRepeatIntervalMs());
+        assertTrue(action.getDescription().contains("回放2次"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsExcessiveRepeatCount() {
+        RuleAction action = RuleAction.recordedTouch("com.example", 0, 5000,
+                1080, 2400, 1, null, Arrays.asList(
+                        new TouchPoint(0.5, 0.7, 0), new TouchPoint(0.5, 0.7, 67)));
+        action.setRepeatCount(6);
     }
 
     @Test(expected = IllegalArgumentException.class)

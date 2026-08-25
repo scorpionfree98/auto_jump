@@ -23,8 +23,13 @@ public final class ClickDispatchResult {
     }
 
     public static ClickDispatchResult recordedTouch(long durationMs, int pointCount) {
+        return recordedTouch(durationMs, pointCount, 1);
+    }
+
+    public static ClickDispatchResult recordedTouch(long durationMs, int pointCount,
+                                                    int repeatCount) {
         return new ClickDispatchResult("真实触摸轨迹已发送（" + durationMs + "ms，"
-                + pointCount + "点）");
+                + pointCount + "点，" + Math.max(1, repeatCount) + "次）");
     }
 
     public String getStatus() {

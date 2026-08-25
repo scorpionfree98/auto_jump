@@ -43,6 +43,8 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private EditText relativeX;
     private EditText relativeY;
     private EditText recordingDeeplink;
+    private EditText repeatCount;
+    private EditText repeatInterval;
     private SwitchCompat continueOnFailure;
     private TextView serviceStatus;
     private TextView touchTraceStatus;
@@ -69,6 +71,8 @@ public class ClickActionEditActivity extends AppCompatActivity {
         relativeX = findViewById(R.id.et_relative_x);
         relativeY = findViewById(R.id.et_relative_y);
         recordingDeeplink = findViewById(R.id.et_recording_deeplink);
+        repeatCount = findViewById(R.id.et_repeat_count);
+        repeatInterval = findViewById(R.id.et_repeat_interval);
         continueOnFailure = findViewById(R.id.switch_continue_on_failure);
         serviceStatus = findViewById(R.id.tv_service_status);
         touchTraceStatus = findViewById(R.id.tv_touch_trace_status);
@@ -247,6 +251,8 @@ public class ClickActionEditActivity extends AppCompatActivity {
         continueOnFailure.setChecked(action.isContinueOnFailure());
         if (action.getType() == ActionType.RECORDED_TOUCH) {
             recordedTouchAction = action;
+            repeatCount.setText(String.valueOf(action.getRepeatCount()));
+            repeatInterval.setText(String.valueOf(action.getRepeatIntervalMs()));
             updateTouchTraceStatus();
         }
     }
@@ -275,6 +281,8 @@ public class ClickActionEditActivity extends AppCompatActivity {
                         recordedTouchAction.getRecordedOrientation(),
                         recordedTouchAction.getTargetAppVersion(),
                         recordedTouchAction.getTouchTrace());
+                action.setRepeatCount(parseInteger(repeatCount, "回放次数"));
+                action.setRepeatIntervalMs(parseLong(repeatInterval, "回放间隔"));
             } else {
                 action = RuleAction.click(
                         requiredText(targetPackage, "请输入目标应用包名"),
@@ -299,6 +307,14 @@ public class ClickActionEditActivity extends AppCompatActivity {
         String value = requiredText(field, "请输入" + label);
         try {
             return Long.parseLong(value);
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException(label + "格式错误");
+        }
+    }
+
+    private int parseInteger(EditText field, String label) {
+        try {
+            return Integer.parseInt(requiredText(field, "请输入" + label));
         } catch (NumberFormatException error) {
             throw new IllegalArgumentException(label + "格式错误");
         }
