@@ -115,6 +115,7 @@
 - 第一版按 WebView 祖先识别的修复在解锁恢复真机回归中仍记录 `控件点击指令已发送`，飞书无业务响应，说明第三方小程序没有向服务稳定暴露 WebView 祖先链。最终策略改为：只要动作带有效录制坐标，选择器匹配后始终在当前候选中心派发 160ms 手势；无坐标精确 ID 才使用节点点击。
 - 最终录制触摸候选 APK：6,121,127 bytes，SHA-256 `cf499ac5a3ad87846fd46fe2c3d9c02636a94536df530b5f0b5ec8ebf3c8c3f6`。修正远端同步脚本以删除已不存在的陈旧源码后，clean 构建得到 56 个当前 JVM 测试全部通过（0 failure / 0 error / 0 skipped），Android Lint 无错误，Debug APK 构建成功。APK 待小米 14 Pro 重新连接后覆盖安装并执行最终真实规则回归。
 - 真实触摸轨迹重构候选 APK：7,194,212 bytes，SHA-256 `c699bc5ec07ab49ee38f2d09bafc069d40134c19a2cf724069b02aced2adfdeb`。新增 schema v4 `RECORDED_TOUCH`，录制阶段由全屏无障碍覆盖层捕获下一次单指 `DOWN/MOVE/UP` 及 MOVE 历史样本，隐藏覆盖层后立即回放；Android 8+ 保留相同坐标的静止 MOVE 样本，并用连续 Stroke 按每段真实时长回放，Android 7 使用整条 Path 和总时长兼容降级。用户在目标页确认“成功，保存”后才写入规则，正式执行不再查询节点或覆盖录制坐标。71 个 JVM 测试全部通过（0 failure / 0 error / 0 skipped），Android Lint 无错误，Debug APK 构建成功并在 120 Android 9 模拟器覆盖安装；崩溃日志为空。
+- 小米 14 Pro 锁屏亮屏回归：设备处于 Dozing 时触发规则，系统记录 `AutoJump:SystemUnlock` 的 `SCREEN_BRIGHT_WAKE_LOCK`，由应用原因从 Dozing 唤醒；用户完成系统认证后，同一 session 依次记录“系统解锁完成，继续执行”“已打开 deeplink”“坐标点击手势已发送”。WakeLock 在 30 秒超时后由系统释放。首次真实触摸录制还发现透明捕获层只有 30 秒等待且 HyperOS 屏蔽 Toast，现已将等待延长为 2 分钟，并在编辑页持久显示失败原因。修复包 SHA-256 为 `e15128aef3498f41686ccb6a84e347ccbcfca0a4efd4e34b5dd5dd2714afc127`，JVM 测试、Android Lint 和 Debug APK 构建通过，已覆盖安装到真机且无障碍服务配置保留。
 - 上述真实触摸 APK 尚未完成小米 14 Pro 飞书业务验收：本机 ADB 当前无已连接或可通过 mDNS 发现的设备。通过标准仍是录制即时回放和随后规则自动回放均产生飞书可见业务结果，而不是仅有手势派发日志。
 
 每个失败项至少记录：

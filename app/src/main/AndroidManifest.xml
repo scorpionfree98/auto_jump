@@ -9,6 +9,8 @@
     <!-- WiFi 状态权限 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 锁屏规则触发后，限时点亮屏幕以便用户完成系统认证。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- 位置权限（Android 10+ WiFi SSID 也需要） -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

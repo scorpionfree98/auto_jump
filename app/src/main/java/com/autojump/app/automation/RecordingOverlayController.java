@@ -37,7 +37,7 @@ final class RecordingOverlayController {
         void onCancel(String requestId);
     }
 
-    private static final long CAPTURE_TIMEOUT_MS = 30_000L;
+    static final long CAPTURE_TIMEOUT_MS = 120_000L;
 
     private final AccessibilityService service;
     private final WindowManager windowManager;

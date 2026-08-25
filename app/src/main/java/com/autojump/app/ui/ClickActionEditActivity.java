@@ -193,9 +193,10 @@ public class ClickActionEditActivity extends AppCompatActivity {
         } else if (state.getStatus() == ClickRecordingStore.Status.REJECTED
                 || state.getStatus() == ClickRecordingStore.Status.EXPIRED) {
             String message = state.getRejectionReason();
-            Toast.makeText(this, TextUtils.isEmpty(message) ? "本次记录未完成" : message,
-                    Toast.LENGTH_LONG).show();
+            String failureMessage = TextUtils.isEmpty(message) ? "本次记录未完成" : message;
+            Toast.makeText(this, failureMessage, Toast.LENGTH_LONG).show();
             clearRecordingRequest();
+            touchTraceStatus.setText("录制未完成：" + failureMessage + "。请重新录制。");
         }
     }
 

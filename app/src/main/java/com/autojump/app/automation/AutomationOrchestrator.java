@@ -16,6 +16,7 @@ public class AutomationOrchestrator {
     private final PendingExecutionStore store;
     private final ExecutionLogStore logs;
     private final ExecutionSessionPolicy sessionPolicy = new ExecutionSessionPolicy();
+    private final ScreenWakeController screenWakeController = new ScreenWakeController();
 
     public AutomationOrchestrator(Context context) {
         store = new PendingExecutionStore(context);
@@ -137,6 +138,9 @@ public class AutomationOrchestrator {
     }
 
     private void launchUnlock(Context context, ExecutionSession session) {
+        if (screenWakeController.wakeForSystemUnlock(context)) {
+            logs.append(session, "WAITING", "已唤醒屏幕，等待系统解锁");
+        }
         Intent unlock = new Intent(context, UnlockGateActivity.class);
         unlock.putExtra(UnlockGateActivity.EXTRA_SESSION_ID, session.getId());
         unlock.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
