@@ -38,7 +38,7 @@ public class RuleJsonCodec {
             if (schemaVersion > RuleDocument.CURRENT_SCHEMA_VERSION) {
                 throw new JsonParseException("规则文件版本过新: " + schemaVersion);
             }
-            if (schemaVersion == RuleDocument.CURRENT_SCHEMA_VERSION) {
+            if (schemaVersion >= 4) {
                 RuleDocument document = gson.fromJson(object, RuleDocument.class);
                 return sanitizeRules(document == null ? null : document.getRules());
             }

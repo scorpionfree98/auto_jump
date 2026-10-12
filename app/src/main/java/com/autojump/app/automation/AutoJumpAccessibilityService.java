@@ -27,14 +27,26 @@ import java.util.Map;
 
 /** Executes only persisted, user-authored click actions for their exact target package. */
 public class AutoJumpAccessibilityService extends AccessibilityService {
+    private static AutoJumpAccessibilityService connected;
+    public static Context connectedContext() { return connected; }
+    /** Hands a delayed recorded touch to Android before a cross-app launch can suspend us. */
+    public static boolean armRecordedTouch(String sessionId, RuleAction action) {
+        return connected != null && connected.armRecordedTouchInternal(sessionId, action);
+    }
+    public static void requestExecutionCheck(String sessionId) {
+        if (connected != null) connected.schedule(sessionId, 1L);
+    }
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, Runnable> scheduled = new HashMap<>();
+    private String replayWindowPackage;
+    private long replayWindowChangedAt;
     private final ClickTargetResolver resolver = new ClickTargetResolver();
     private final AccessibilityNodeFinder nodeFinder = new AccessibilityNodeFinder();
     private final ClickGesturePolicy gesturePolicy = new ClickGesturePolicy();
     private final ClickRecordingPolicy recordingPolicy = new ClickRecordingPolicy();
     private final TouchTracePolicy touchTracePolicy = new TouchTracePolicy();
     private final RecordedTouchResolver recordedTouchResolver = new RecordedTouchResolver();
+    private final RecordedTouchSchedule recordedTouchSchedule = new RecordedTouchSchedule();
     private final RecordedTouchGesturePlan recordedTouchGesturePlan =
             new RecordedTouchGesturePlan();
     private final ForegroundPackageTracker foregroundTracker = new ForegroundPackageTracker();
@@ -52,17 +64,34 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         ensureStores();
+        connected = this;
+        android.util.Log.i("ToolkitClickService", "connected pid=" + android.os.Process.myPid());
+        QueueCoordinator.pump(this);
         updateRecordingOverlay();
         processAllSessions();
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        connected = this;
+        ensureStores();
         String eventPackage = null;
-        String activeRootPackage = packageName(getRootInActiveWindow());
+        // Coordinate replay must not wait for the target WebView's node-tree IPC.
+        // Root confirmation is only needed when binding a new recording target.
+        ClickRecordingStore.State recording = recordingStore.get();
+        String activeRootPackage = recording.getStatus() == ClickRecordingStore.Status.WAITING_START
+                && recording.getTargetPackage() == null ? packageName(getRootInActiveWindow()) : null;
         if (event != null) {
             eventPackage = event.getPackageName() == null
                     ? null : event.getPackageName().toString();
+            replayWindowPackage = foregroundTracker.replayWindow(replayWindowPackage, eventPackage,
+                    event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+            if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                // Use event occurrence time, not delivery time: a late old launcher
+                // event must not be mistaken for a user switching away after launch.
+                replayWindowChangedAt = System.currentTimeMillis() - Math.max(0,
+                        android.os.SystemClock.uptimeMillis() - event.getEventTime());
+            }
             foregroundPackage = foregroundTracker.update(foregroundPackage, eventPackage,
                     activeRootPackage, getPackageName(),
                     event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
@@ -81,6 +110,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        if (connected == this) connected = null;
+        android.util.Log.i("ToolkitClickService", "destroyed pid=" + android.os.Process.myPid());
         hideRecordingOverlay();
         cancelAllCallbacks();
         super.onDestroy();
@@ -345,6 +376,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     }
 
     private void processAllSessions() {
+        QueueCoordinator.pump(this);
         for (ExecutionSession session : store.getAll()) processSession(session.getId());
     }
 
@@ -353,13 +385,22 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         if (old != null) handler.removeCallbacks(old);
 
         ExecutionSession session = store.findById(sessionId);
+        if (QueueCoordinator.expired(this, session)) {
+            if (session.getStatus() == ExecutionSession.Status.RUNNING) QueueCoordinator.pump(this);
+            else orchestrator.cancelSession(session, "任务等待已超时，请重新运行");
+            return;
+        }
         if (session == null || session.getStatus() == ExecutionSession.Status.FAILED
+                || session.getStatus() == ExecutionSession.Status.QUEUED
+                || session.getStatus() == ExecutionSession.Status.SKIPPED
                 || session.getStatus() == ExecutionSession.Status.CANCELLED
                 || session.getStatus() == ExecutionSession.Status.RUNNING) return;
 
         RuleAction action = session.currentAction();
         if (action == null) {
-            store.remove(sessionId);
+            if (session.getNotBefore() <= System.currentTimeMillis()) {
+                orchestrator.continueUntilExternalEvent(this, session, System.currentTimeMillis());
+            } else schedule(sessionId, session.getNotBefore() - System.currentTimeMillis());
             return;
         }
 
@@ -386,14 +427,25 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             return;
         }
 
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        String activePackage = packageName(root);
-        if (activePackage == null) activePackage = foregroundPackage;
+        AccessibilityNodeInfo root = action.getType() == ActionType.RECORDED_TOUCH ? null : getRootInActiveWindow();
+        String activePackage = action.getType() == ActionType.RECORDED_TOUCH ? replayWindowPackage : packageName(root);
+        if (activePackage == null && action.getType() != ActionType.RECORDED_TOUCH) activePackage = foregroundPackage;
         long actionStartedAt = Math.max(session.getUpdatedAt(), session.getNotBefore());
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         if (action.getType() == ActionType.RECORDED_TOUCH) {
-            RecordedTouchResolver.Result result = recordedTouchResolver.resolve(action,
-                    activePackage, actionStartedAt, now, metrics.widthPixels,
+            metrics = recordedMetrics(action);
+            long deadline = actionStartedAt + action.getDelayBeforeMs() + action.getTimeoutMs();
+            if (now >= deadline) {
+                fail(session, "目标页面等待超时，未继续派发点击", now);
+                return;
+            }
+            if (RecordedReplayWindowPolicy.switchedAway(action.getTargetPackage(), replayWindowPackage,
+                    replayWindowChangedAt, actionStartedAt)) {
+                fail(session, "检测到跳转后已切换应用，未派发录制点击", now);
+                return;
+            }
+            RecordedTouchResolver.Result result = recordedTouchResolver.resolveAfterDelay(action,
+                    actionStartedAt, now, metrics.widthPixels,
                     metrics.heightPixels, getResources().getConfiguration().orientation);
             handleRecordedTouchResolution(session, action, result, now);
             return;
@@ -422,10 +474,14 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 fail(session, result.getMessage(), now);
                 break;
             case REPLAY:
-                DisplayMetrics metrics = getResources().getDisplayMetrics();
+                DisplayMetrics metrics = recordedMetrics(action);
+                com.autojump.app.domain.TouchPoint first = result.getTrace().get(0);
+                logs.append(session,"REPLAY_POSITION", "回放落点 " + Math.round(first.getRelativeX()*metrics.widthPixels)
+                        + "," + Math.round(first.getRelativeY()*metrics.heightPixels) + " px；容差 "
+                        + action.getScreenTolerancePercent() + "%；偏移 " + action.getReplayOffsetXPx() + "," + action.getReplayOffsetYPx());
                 session.setStatus(ExecutionSession.Status.RUNNING);
                 store.upsert(session);
-                dispatchRecordedTouchRepeated(result.getTrace(), metrics.widthPixels,
+                dispatchRecordedTouchRepeated(session.getId(), result.getTrace(), metrics.widthPixels,
                         metrics.heightPixels, action.getRepeatCount(),
                         action.getRepeatIntervalMs(), 1, new GestureDispatchListener() {
                             @Override public void onCompleted() {
@@ -443,22 +499,115 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         }
     }
 
+    private DisplayMetrics recordedMetrics(RuleAction action) {
+        DisplayMetrics metrics = new DisplayMetrics();
+        metrics.setTo(getResources().getDisplayMetrics());
+        int resource = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        int statusBar = resource == 0 ? 0 : getResources().getDimensionPixelSize(resource);
+        metrics.heightPixels = RecordedViewportPolicy.height(action.getRecordedDisplayWidth(),
+                action.getRecordedDisplayHeight(), metrics.widthPixels, metrics.heightPixels, statusBar);
+        return metrics;
+    }
+
+    @TargetApi(Build.VERSION_CODES.N)
+    private boolean armRecordedTouchInternal(String sessionId, RuleAction action) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || sessionId == null || action == null) {
+            return false;
+        }
+        ExecutionSession session = store.findById(sessionId);
+        if (session == null || session.currentAction() == null
+                || session.currentAction().getType() != ActionType.RECORDED_TOUCH
+                || session.isCancelRequested() || isKeyguardLocked()) {
+            return false;
+        }
+        DisplayMetrics metrics = recordedMetrics(action);
+        RecordedTouchResolver.Result resolved = recordedTouchResolver.resolveAfterDelay(action,
+                0L, Math.max(0L, action.getDelayBeforeMs()), metrics.widthPixels,
+                metrics.heightPixels, getResources().getConfiguration().orientation);
+        if (resolved.getDecision() != RecordedTouchResolver.Decision.REPLAY) {
+            fail(session, resolved.getMessage() == null
+                    ? "无法准备录制点击" : resolved.getMessage(), System.currentTimeMillis());
+            return false;
+        }
+
+        List<TouchPoint> trace = resolved.getTrace();
+        Path path = new Path();
+        TouchPoint first = trace.get(0);
+        path.moveTo((float) (first.getRelativeX() * metrics.widthPixels),
+                (float) (first.getRelativeY() * metrics.heightPixels));
+        for (int index = 1; index < trace.size(); index++) {
+            TouchPoint point = trace.get(index);
+            path.lineTo((float) (point.getRelativeX() * metrics.widthPixels),
+                    (float) (point.getRelativeY() * metrics.heightPixels));
+        }
+        long duration = Math.max(1L, action.getTouchDurationMs());
+        long start = Math.max(0L, action.getDelayBeforeMs());
+        final RecordedTouchSchedule.Result timing;
+        try {
+            timing = recordedTouchSchedule.calculate(start, duration, action.getRepeatCount(),
+                    action.getRepeatIntervalMs(), GestureDescription.getMaxGestureDuration());
+        } catch (IllegalArgumentException error) {
+            fail(session, error.getMessage(), System.currentTimeMillis());
+            return false;
+        }
+        GestureDescription.Builder builder = new GestureDescription.Builder();
+        for (long strokeStart : timing.getStarts()) {
+            builder.addStroke(new GestureDescription.StrokeDescription(
+                    path, strokeStart, duration));
+        }
+        GestureDescription gesture = builder.build();
+        logs.append(session, "REPLAY_POSITION", "已预提交回放落点 "
+                + Math.round(first.getRelativeX() * metrics.widthPixels) + ","
+                + Math.round(first.getRelativeY() * metrics.heightPixels) + " px；延迟 "
+                + start + "ms；次数 " + action.getRepeatCount());
+        session.setStatus(ExecutionSession.Status.RUNNING);
+        store.upsert(session);
+        boolean accepted = dispatchGesture(gesture, new GestureResultCallback() {
+            @Override public void onCompleted(GestureDescription gestureDescription) {
+                completeAction(sessionId, ClickDispatchResult.recordedTouch(
+                        action.getTouchDurationMs(), action.getTouchTrace().size(),
+                        action.getRepeatCount()));
+            }
+
+            @Override public void onCancelled(GestureDescription gestureDescription) {
+                ExecutionSession fresh = store.findById(sessionId);
+                if (fresh != null) fail(fresh, "预提交的真实触摸回放被系统取消",
+                        System.currentTimeMillis());
+            }
+        }, handler);
+        if (!accepted) {
+            ExecutionSession fresh = store.findById(sessionId);
+            if (fresh != null) fail(fresh, "系统未接受预提交的真实触摸回放",
+                    System.currentTimeMillis());
+        }
+        return accepted;
+    }
+
     private interface GestureDispatchListener {
         void onCompleted();
         void onFailed(String reason);
     }
 
-    private void dispatchRecordedTouchRepeated(List<TouchPoint> trace, int width, int height,
+    private void dispatchRecordedTouchRepeated(String sessionId, List<TouchPoint> trace, int width, int height,
                                                int repeatCount, long repeatIntervalMs,
                                                int currentRepeat,
                                                GestureDispatchListener listener) {
-        dispatchRecordedTouch(trace, width, height, new GestureDispatchListener() {
+        ExecutionSession current = store.findById(sessionId);
+        if (current == null || current.isCancelRequested()) {
+            listener.onCompleted(); return;
+        }
+        if (isKeyguardLocked() || current.currentAction() == null
+                || RecordedReplayWindowPolicy.switchedAway(current.currentAction().getTargetPackage(),
+                    replayWindowPackage, replayWindowChangedAt, current.getUpdatedAt())) {
+            listener.onFailed("回放时目标应用已切换或锁屏，已停止后续点击"); return;
+        }
+        dispatchRecordedTouch(sessionId, trace, width, height, new GestureDispatchListener() {
             @Override public void onCompleted() {
                 if (currentRepeat >= repeatCount) {
                     listener.onCompleted();
                     return;
                 }
-                handler.postDelayed(() -> dispatchRecordedTouchRepeated(trace, width, height,
+                handler.postDelayed(() -> dispatchRecordedTouchRepeated(sessionId, trace, width, height,
                         repeatCount, repeatIntervalMs, currentRepeat + 1, listener),
                         repeatIntervalMs);
             }
@@ -471,6 +620,12 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
 
     @TargetApi(Build.VERSION_CODES.N)
     private void dispatchRecordedTouch(List<TouchPoint> trace, int width, int height,
+                                       GestureDispatchListener listener) {
+        dispatchRecordedTouch(null,trace,width,height,listener);
+    }
+
+    @TargetApi(Build.VERSION_CODES.N)
+    private void dispatchRecordedTouch(String executionId, List<TouchPoint> trace, int width, int height,
                                        GestureDispatchListener listener) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             listener.onFailed("Android 7.0 以下不支持真实触摸回放");
@@ -488,7 +643,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 listener.onFailed(error.getMessage());
                 return;
             }
-            dispatchContinuedSegment(segments, 0, null, width, height, listener);
+            dispatchContinuedSegment(executionId,segments, 0, null, width, height, listener);
             return;
         }
         Path path = new Path();
@@ -517,11 +672,17 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     }
 
     @TargetApi(Build.VERSION_CODES.O)
-    private void dispatchContinuedSegment(List<RecordedTouchGesturePlan.Segment> segments,
+    private void dispatchContinuedSegment(String executionId,List<RecordedTouchGesturePlan.Segment> segments,
                                           int index,
                                           GestureDescription.StrokeDescription previousStroke,
                                           int width, int height,
                                           GestureDispatchListener listener) {
+        if (executionId != null) {
+            ExecutionSession fresh=store.findById(executionId);
+            if(fresh==null || fresh.getStatus()!=ExecutionSession.Status.RUNNING || fresh.isCancelRequested()) {
+                listener.onCompleted();return;
+            }
+        }
         if (index < 0 || index >= segments.size()) {
             listener.onCompleted();
             return;
@@ -544,7 +705,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         boolean accepted = dispatchGesture(gesture, new GestureResultCallback() {
             @Override public void onCompleted(GestureDescription gestureDescription) {
                 if (willContinue) {
-                    dispatchContinuedSegment(segments, index + 1, stroke,
+                    dispatchContinuedSegment(executionId,segments, index + 1, stroke,
                             width, height, listener);
                 } else {
                     listener.onCompleted();
@@ -657,6 +818,10 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private void completeAction(String sessionId, ClickDispatchResult result) {
         ExecutionSession session = store.findById(sessionId);
         if (session == null || session.getStatus() != ExecutionSession.Status.RUNNING) return;
+        if (session.isCancelRequested()) {
+            logs.append(session, session.getCancellationStatus(), session.getCancellationReason()+"；未发送后续动作");
+            store.remove(sessionId); return;
+        }
         long now = System.currentTimeMillis();
         logs.append(session, result.getStatus(), result.getMessage());
         session.advance(now);
@@ -671,6 +836,12 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     }
 
     private void fail(ExecutionSession session, String message, long now) {
+        ExecutionSession current = store.findById(session.getId());
+        if (current == null || !QueuePolicy.live(current)) return;
+        if (current.isCancelRequested()) {
+            logs.append(current, current.getCancellationStatus(), current.getCancellationReason());
+            store.remove(current.getId()); return;
+        }
         if (session == null) return;
         RuleAction action = session.currentAction();
         String safeMessage = message == null || message.trim().isEmpty() ? "点击动作失败" : message;

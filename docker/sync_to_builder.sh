@@ -31,6 +31,17 @@ rsync -az --delete \
     --exclude '*.apk' \
     --exclude '*.aab' \
     --exclude 'local.properties' \
+    --exclude 'signing' \
+    --exclude 'dist' \
+    --exclude 'build-checks' \
+    --exclude '*.jks' \
+    --exclude '*.keystore' \
+    --exclude '*.p12' \
+    --exclude '*.pfx' \
+    --exclude '*.pem' \
+    --exclude '*.key' \
+    --exclude '.env' \
+    --exclude '.env.*' \
     "$PROJECT_DIR/" "$REMOTE_HOST:$REMOTE_DIR/"
 
 echo "==> 同步完成"

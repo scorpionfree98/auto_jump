@@ -2,6 +2,12 @@ package com.autojump.app.automation;
 
 /** Keeps transient accessibility events from replacing the actual foreground app. */
 final class ForegroundPackageTracker {
+    String replayWindow(String previous, String eventPackage, boolean windowStateChanged) {
+        if (!windowStateChanged || eventPackage == null || eventPackage.trim().isEmpty()) return previous;
+        // Include our own management page and system windows: never retain a stale
+        // target package when the user has switched away from it.
+        return eventPackage.trim();
+    }
     String update(String previousPackage, String eventPackage, String activeRootPackage,
                   String servicePackage, boolean windowStateChanged) {
         String active = normalizedExternal(activeRootPackage, servicePackage);

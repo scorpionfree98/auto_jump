@@ -13,7 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
-import com.autojump.app.R;
+import cn.local.jiojio.R;
 import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.automation.ClickRecordingStore;
 import com.autojump.app.automation.RecordedClick;
@@ -45,6 +45,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private EditText recordingDeeplink;
     private EditText repeatCount;
     private EditText repeatInterval;
+    private EditText screenTolerance, offsetX, offsetY, pageSettle;
     private SwitchCompat continueOnFailure;
     private TextView serviceStatus;
     private TextView touchTraceStatus;
@@ -59,6 +60,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_click_action_edit);
+        findViewById(R.id.btn_page_back).setOnClickListener(v -> finish());
         setTitle("编辑点击动作");
 
         targetPackage = findViewById(R.id.et_target_package);
@@ -73,6 +75,10 @@ public class ClickActionEditActivity extends AppCompatActivity {
         recordingDeeplink = findViewById(R.id.et_recording_deeplink);
         repeatCount = findViewById(R.id.et_repeat_count);
         repeatInterval = findViewById(R.id.et_repeat_interval);
+        screenTolerance = findViewById(R.id.et_screen_tolerance);
+        offsetX = findViewById(R.id.et_replay_offset_x);
+        offsetY = findViewById(R.id.et_replay_offset_y);
+        pageSettle = findViewById(R.id.et_page_settle);
         continueOnFailure = findViewById(R.id.switch_continue_on_failure);
         serviceStatus = findViewById(R.id.tv_service_status);
         touchTraceStatus = findViewById(R.id.tv_touch_trace_status);
@@ -108,6 +114,15 @@ public class ClickActionEditActivity extends AppCompatActivity {
         openSettings.setOnClickListener(v -> openAccessibilitySettings());
         record.setOnClickListener(v -> confirmAndPrepareRecording());
         save.setOnClickListener(v -> saveAction());
+        findViewById(R.id.btn_preview_replay).setOnClickListener(v -> previewReplay());
+        findViewById(R.id.btn_advanced_click).setOnClickListener(v -> {
+            android.view.View advanced = findViewById(R.id.advanced_click);
+            advanced.setVisibility(advanced.getVisibility() == android.view.View.VISIBLE
+                    ? android.view.View.GONE : android.view.View.VISIBLE);
+        });
+        if (recordedTouchAction == null && !TextUtils.isEmpty(text(targetPackage))) {
+            findViewById(R.id.advanced_click).setVisibility(android.view.View.VISIBLE);
+        }
     }
 
     @Override
@@ -229,6 +244,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         setText(targetPackage, touch.getTargetPackage());
         delay.setText(String.valueOf(touch.getDelayBeforeMs()));
         timeout.setText(String.valueOf(RuleAction.DEFAULT_TIMEOUT_MS));
+        screenTolerance.setText("10"); offsetX.setText("0"); offsetY.setText("0"); pageSettle.setText("1000");
         viewId.setText("");
         targetText.setText("");
         contentDescription.setText("");
@@ -253,6 +269,10 @@ public class ClickActionEditActivity extends AppCompatActivity {
             recordedTouchAction = action;
             repeatCount.setText(String.valueOf(action.getRepeatCount()));
             repeatInterval.setText(String.valueOf(action.getRepeatIntervalMs()));
+            screenTolerance.setText(String.valueOf(action.getScreenTolerancePercent()));
+            offsetX.setText(String.valueOf(action.getReplayOffsetXPx()));
+            offsetY.setText(String.valueOf(action.getReplayOffsetYPx()));
+            pageSettle.setText(String.valueOf(action.getPageSettleMs()));
             updateTouchTraceStatus();
         }
     }
@@ -262,11 +282,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
             touchTraceStatus.setText("尚未录制真实触摸轨迹");
             return;
         }
-        touchTraceStatus.setText("已录制真实触摸："
-                + recordedTouchAction.getTouchDurationMs() + "ms · "
-                + recordedTouchAction.getTouchTrace().size() + " 个轨迹点 · "
-                + recordedTouchAction.getRecordedDisplayWidth() + "×"
-                + recordedTouchAction.getRecordedDisplayHeight());
+        touchTraceStatus.setText("已录制点击 ✓\n可以调整等待时间和点击次数，然后保存。");
     }
 
     private void saveAction() {
@@ -283,7 +299,11 @@ public class ClickActionEditActivity extends AppCompatActivity {
                         recordedTouchAction.getTouchTrace());
                 action.setRepeatCount(parseInteger(repeatCount, "回放次数"));
                 action.setRepeatIntervalMs(parseLong(repeatInterval, "回放间隔"));
+                applyReplaySettings(action);
             } else {
+                if (TextUtils.isEmpty(text(targetPackage))) {
+                    throw new IllegalArgumentException("请先录制一次点击，再保存");
+                }
                 action = RuleAction.click(
                         requiredText(targetPackage, "请输入目标应用包名"),
                         parseLong(delay, "点击延迟"),
@@ -301,6 +321,39 @@ public class ClickActionEditActivity extends AppCompatActivity {
         } catch (IllegalArgumentException error) {
             Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void applyReplaySettings(RuleAction action) {
+        action.setScreenTolerancePercent(parseInteger(screenTolerance,"比例容差"));
+        try { action.setReplayOffsets(Double.parseDouble(text(offsetX)), Double.parseDouble(text(offsetY))); }
+        catch (NumberFormatException error) { throw new IllegalArgumentException("请输入有效的 X/Y 偏移"); }
+        action.setPageSettleMs(parseLong(pageSettle,"页面稳定等待"));
+    }
+
+    private void previewReplay() {
+        if (recordedTouchAction == null) { Toast.makeText(this,"请先录制点击",Toast.LENGTH_SHORT).show(); return; }
+        try {
+            RuleAction draft = gson.fromJson(gson.toJson(recordedTouchAction),RuleAction.class);
+            applyReplaySettings(draft);
+            android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+            int width=metrics.widthPixels, height=metrics.heightPixels;
+            int status=getResources().getIdentifier("status_bar_height","dimen","android");
+            height=com.autojump.app.automation.RecordedViewportPolicy.height(draft.getRecordedDisplayWidth(),
+                    draft.getRecordedDisplayHeight(),width,height,status==0?0:getResources().getDimensionPixelSize(status));
+            java.util.List<com.autojump.app.domain.TouchPoint> mapped=
+                    com.autojump.app.automation.RecordedTouchResolver.mappedTrace(draft,width,height);
+            com.autojump.app.domain.TouchPoint p=mapped.get(0);
+            String position="当前回放空间："+width+" × "+height+"\n校准后落点："
+                    +Math.round(p.getRelativeX()*width)+", "+Math.round(p.getRelativeY()*height)+" px\n灰色为原落点，绿色为校准落点。仅为示意，不会触发点击。";
+            android.widget.LinearLayout panel=new android.widget.LinearLayout(this);
+            panel.setOrientation(android.widget.LinearLayout.VERTICAL);
+            int padding=Math.round(20*metrics.density);panel.setPadding(padding,0,padding,0);
+            TextView label=new TextView(this);label.setText(position);panel.addView(label);
+            panel.addView(new RecordedTouchPreviewView(this,draft.getTouchTrace(),mapped,width,height),
+                    new android.widget.LinearLayout.LayoutParams(-1,Math.round(260*metrics.density)));
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("校准落点预览")
+                    .setView(panel).setPositiveButton("返回调整",null).show();
+        } catch (IllegalArgumentException error) { Toast.makeText(this,error.getMessage(),Toast.LENGTH_LONG).show(); }
     }
 
     private long parseLong(EditText field, String label) {

@@ -1,400 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/page_background"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="点击动作"
-            android:textAppearance="@style/TextAppearance.AutoJump.PageTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="推荐录制真实触摸；旧版控件定位仅用于兼容已有规则。"
-            android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.AutoJump.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="自动点击服务"
-                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
-
-                <TextView
-                    android:id="@+id/tv_service_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:textAppearance="@style/TextAppearance.AutoJump.Caption"
-                    android:textStyle="bold" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_open_accessibility_settings"
-                    style="@style/Widget.AutoJump.Button.Outlined"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="打开无障碍设置" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.AutoJump.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="执行参数"
-                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.AutoJump.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:hint="目标应用包名">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_target_package"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textNoSuggestions" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.AutoJump.TextInputLayout"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="点击延迟 ms">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_click_delay"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:text="1000" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.AutoJump.TextInputLayout"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:hint="超时 ms">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_click_timeout"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:text="15000" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.AutoJump.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:hint="查找重试间隔 ms">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_retry_interval"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="number"
-                        android:text="500" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.AutoJump.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="控件定位"
-                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="至少填写一项；录制功能可自动回填。"
-                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.AutoJump.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:hint="控件 ID">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_target_view_id"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textNoSuggestions" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.AutoJump.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:hint="控件文字">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_target_text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.AutoJump.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:hint="无障碍描述">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_target_description"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.AutoJump.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="备用坐标与失败策略"
-                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="相对坐标范围为 0 到 1，X/Y 需要同时填写。"
-                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.AutoJump.TextInputLayout"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="X，如 0.5">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_relative_x"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="numberDecimal" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.AutoJump.TextInputLayout"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:hint="Y，如 0.8">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_relative_y"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="numberDecimal" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-
-                <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switch_continue_on_failure"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:minHeight="48dp"
-                    android:text="点击失败时继续后续动作" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.AutoJump.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="录制目标点击"
-                    android:textAppearance="@style/TextAppearance.AutoJump.SectionTitle" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="点击开始后会捕获你下一次真实触摸并立即回放；测试和实际执行不会显示悬浮窗。"
-                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
-
-                <TextView
-                    android:id="@+id/tv_touch_trace_status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="尚未录制真实触摸轨迹"
-                    android:textAppearance="@style/TextAppearance.AutoJump.Caption"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.AutoJump.TextInputLayout"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="正式回放次数">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_repeat_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:text="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.AutoJump.TextInputLayout"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:hint="两次间隔 ms">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_repeat_interval"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:text="800" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.AutoJump.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:hint="录制阶段跳转链接">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/et_recording_deeplink"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textUri"
-                        android:maxLines="4" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_record_click"
-                    style="@style/Widget.AutoJump.Button.Outlined"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="前往页面并录制" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_save_click_action"
-            style="@style/Widget.AutoJump.Button.Primary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="保存点击动作" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="24dp" />
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/page_background" android:fillViewport="true">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+    <com.google.android.material.button.MaterialButton android:id="@+id/btn_page_back" style="@style/Widget.AutoJump.Button.Text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="‹ 返回"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="录制点击" android:textAppearance="@style/TextAppearance.AutoJump.PageTitle"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="在目标页面点悬浮窗开始，再点击按钮。确认后返回这里保存。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+    <com.google.android.material.card.MaterialCardView style="@style/Widget.AutoJump.Card" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+        <TextView android:id="@+id/tv_service_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="自动点击服务" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+        <com.google.android.material.button.MaterialButton android:id="@+id/btn_open_accessibility_settings" style="@style/Widget.AutoJump.Button.Outlined" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="设置自动点击权限"/>
+        <com.google.android.material.button.MaterialButton android:id="@+id/btn_record_click" style="@style/Widget.AutoJump.Button.Outlined" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="前往页面并录制"/>
+        <TextView android:id="@+id/tv_touch_trace_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="尚未录制，点击上方按钮开始。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="目标应用出现后等待（毫秒，1000 = 1 秒）">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_click_delay" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="1000"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="点击次数">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_repeat_count" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="1"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="两次点击间隔（毫秒，1000 = 1 秒）">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_repeat_interval" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="800"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="重复次数用于同一位置；不同按钮请在指令中分别添加操作。正式执行时不会出现录制悬浮窗。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="屏幕适配与落点校准" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="屏幕比例容差（1%—25%，默认 10%）">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_screen_tolerance" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="10"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="X 偏移（像素；正数右移，负数左移）">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_replay_offset_x" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberSigned|numberDecimal" android:text="0"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="Y 偏移（像素；正数下移，负数上移）">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_replay_offset_y" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberSigned|numberDecimal" android:text="0"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" android:layout_marginTop="12dp" android:hint="页面稳定等待（旧参数，不用于定时回放）">
+          <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_page_settle" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="1000"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="按当前屏幕换算录制坐标；偏移固定，不会随机漂移。等待只判断目标应用与页面变化，不识别按钮是否已加载。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+        <com.google.android.material.button.MaterialButton android:id="@+id/btn_preview_replay" style="@style/Widget.AutoJump.Button.Outlined" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="预览校准落点（不点击）"/>
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.button.MaterialButton android:id="@+id/btn_advanced_click" style="@style/Widget.AutoJump.Button.Outlined" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="高级设置 · 链接与定位"/>
+    <LinearLayout android:id="@+id/advanced_click" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="录制时打开的链接">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_recording_deeplink" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="目标应用包名（录制自动填入）">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_target_package" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="等待目标超时（毫秒）">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_click_timeout" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="15000"/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="旧版定位重试间隔（毫秒）">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_retry_interval" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="500"/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="以下用于兼容旧版控件定位；新录制无需填写。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="控件 ID">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_target_view_id" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="控件文字">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_target_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="无障碍描述">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_target_description" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="相对 X">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_relative_x" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="相对 Y">
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_relative_y" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text=""/>
+      </com.google.android.material.textfield.TextInputLayout>
+      <androidx.appcompat.widget.SwitchCompat android:id="@+id/switch_continue_on_failure" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="失败后继续其他操作"/>
     </LinearLayout>
+    <com.google.android.material.button.MaterialButton android:id="@+id/btn_save_click_action" style="@style/Widget.AutoJump.Button.Primary" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="保存点击"/>
+  </LinearLayout>
 </ScrollView>

@@ -33,6 +33,28 @@ public class RuleAction implements Serializable {
     private String targetAppVersion;
     private int repeatCount = DEFAULT_REPEAT_COUNT;
     private long repeatIntervalMs = DEFAULT_REPEAT_INTERVAL_MS;
+    private int screenTolerancePercent;
+    private double replayOffsetXPx;
+    private double replayOffsetYPx;
+    private long pageSettleMs;
+
+    public int getScreenTolerancePercent() { return screenTolerancePercent == 0 ? 10 : screenTolerancePercent; }
+    public void setScreenTolerancePercent(int value) {
+        if (value < 1 || value > 25) throw new IllegalArgumentException("屏幕比例容差必须在 1% 到 25% 之间");
+        screenTolerancePercent = value;
+    }
+    public double getReplayOffsetXPx() { return replayOffsetXPx; }
+    public double getReplayOffsetYPx() { return replayOffsetYPx; }
+    public void setReplayOffsets(double x, double y) {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || Math.abs(x) > 500 || Math.abs(y) > 500)
+            throw new IllegalArgumentException("X/Y 偏移必须在 -500 到 500 像素之间");
+        replayOffsetXPx = x; replayOffsetYPx = y;
+    }
+    public long getPageSettleMs() { return pageSettleMs == 0 ? 1000L : pageSettleMs; }
+    public void setPageSettleMs(long value) {
+        if (value < 200 || value > 10000) throw new IllegalArgumentException("页面稳定等待必须在 200 到 10000 毫秒之间");
+        pageSettleMs = value;
+    }
 
     private RuleAction(ActionType type) {
         this.type = type;
@@ -93,6 +115,7 @@ public class RuleAction implements Serializable {
         if (trace == null || trace.size() < 2) {
             throw new IllegalArgumentException("真实触摸轨迹至少需要按下和抬起两个点");
         }
+        if (trace.size() > 256) throw new IllegalArgumentException("触摸轨迹最多支持 256 个样本");
         List<TouchPoint> copy = new ArrayList<>(trace.size());
         long previous = -1;
         for (TouchPoint point : trace) {
@@ -108,6 +131,8 @@ public class RuleAction implements Serializable {
         if (copy.get(copy.size() - 1).getElapsedMs() <= copy.get(0).getElapsedMs()) {
             throw new IllegalArgumentException("触摸轨迹必须具有有效时长");
         }
+        if (copy.get(copy.size()-1).getElapsedMs()-copy.get(0).getElapsedMs()>10_000L)
+            throw new IllegalArgumentException("单次触摸最长 10 秒");
         return copy;
     }
 
@@ -115,7 +140,7 @@ public class RuleAction implements Serializable {
         if ((x == null) != (y == null)) {
             throw new IllegalArgumentException("点击坐标必须同时包含 X 和 Y");
         }
-        if (x != null && (x < 0 || x > 1 || y < 0 || y > 1)) {
+        if (x != null && (!Double.isFinite(x) || !Double.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)) {
             throw new IllegalArgumentException("相对坐标必须在 0 到 1 之间");
         }
     }

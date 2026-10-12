@@ -41,6 +41,6 @@ public class RuleRepository {
     }
 
     public List<Rule> importRules(String json) {
-        return codec.decode(json);
+        return StrictRuleImport.decode(json);
     }
 }

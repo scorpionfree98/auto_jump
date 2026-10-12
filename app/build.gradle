@@ -1,51 +1,60 @@
-plugins {
-    id 'com.android.application'
+plugins { id 'com.android.application' }
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) localPropertiesFile.withInputStream { localProperties.load(it) }
+def amapApiKey = project.findProperty('AMAP_API_KEY') ?: localProperties.getProperty('AMAP_API_KEY') ?: 'CONFIGURE_AMAP_KEY'
+def releaseSigningFile = rootProject.file('signing/release-key.properties')
+def releaseSigningValues = new Properties()
+if (releaseSigningFile.exists()) releaseSigningFile.withInputStream { releaseSigningValues.load(it) }
+def queueRuntimeOnly = project.findProperty('queueRuntimeOnly') == 'true'
+if (queueRuntimeOnly && !gradle.startParameter.taskNames.every {
+    it == ':app:assembleDebug' || it == ':app:assembleDebugAndroidTest'
+}) {
+    throw new GradleException('queueRuntimeOnly is restricted to explicit debug runtime-test APK builds')
 }
-
 android {
-    namespace "com.autojump.app"
-    compileSdk 34
-    buildToolsVersion "34.0.0"
-
+    namespace 'cn.local.jiojio'
+    compileSdk 35
     defaultConfig {
-        applicationId "com.autojump.app"
-        minSdk 21
-        targetSdk 34
-        versionCode 2
-        versionName "2.0.0-beta.1"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders = [AMAP_API_KEY: amapApiKey]
+        applicationId 'cn.local.toolkit'
+        minSdk 26
+        targetSdk 35
+        versionCode 5
+        versionName '0.2.3'
+        testInstrumentationRunner project.findProperty('runtimeTestRunner') ?: 'cn.local.jiojio.CoreRuntimeInstrumentation'
     }
-
+    if (releaseSigningFile.exists()) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file("signing/${releaseSigningValues['storeFile']}")
+                storePassword releaseSigningValues['storePassword']
+                keyAlias releaseSigningValues['keyAlias']
+                keyPassword releaseSigningValues['keyPassword']
+            }
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    buildFeatures { buildConfig true }
+    // Queue tests do not load maps. Omit ARM-only map natives solely for the
+    // explicitly isolated x86 emulator debug build; release builds are forbidden.
+    if (queueRuntimeOnly) packaging { jniLibs { excludes += ['**/*.so'] } }
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (releaseSigningFile.exists()) signingConfig signingConfigs.release
         }
     }
-    buildFeatures {
-        buildConfig true
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
 }
-
 dependencies {
-    // 基础兼容库
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    // 快捷方式兼容库
-    implementation 'androidx.core:core-splashscreen:1.0.1'
     implementation 'androidx.core:core:1.12.0'
-    // 列表RecyclerView
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
-    // JSON 序列化（SPUtil 持久化配置使用）
+    implementation 'com.google.android.material:material:1.11.0'
     implementation 'com.google.code.gson:gson:2.10.1'
-
+    implementation 'com.amap.api:3dmap-location-search:11.3.100_loc11.3.000_sea9.8.1'
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }

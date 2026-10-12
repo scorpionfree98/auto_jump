@@ -67,6 +67,13 @@ public class PendingExecutionStore {
     }
 
     private void save(List<ExecutionSession> sessions) {
-        preferences.edit().putString(KEY_SESSIONS, gson.toJson(sessions)).apply();
+        preferences.edit().putString(KEY_SESSIONS, gson.toJson(sessions)).commit();
+    }
+    public long nextSequence() {
+        synchronized (LOCK) {
+            long next = preferences.getLong("queue_sequence", 0L) + 1;
+            preferences.edit().putLong("queue_sequence", next).commit();
+            return next;
+        }
     }
 }

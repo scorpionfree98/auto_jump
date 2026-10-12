@@ -12,6 +12,8 @@ public class ExecutionLogStore {
     public static class Entry {
         private long timestamp;
         private String sessionId;
+        private String ruleId;
+        public String getRuleId() { return ruleId; }
         private String ruleName;
         private String status;
         private String message;
@@ -45,8 +47,10 @@ public class ExecutionLogStore {
     public void append(ExecutionSession session, String status, String message) {
         synchronized (LOCK) {
             List<Entry> entries = getAll();
-            entries.add(0, new Entry(System.currentTimeMillis(), session.getId(),
-                    session.getRuleName(), status, message));
+            Entry entry = new Entry(System.currentTimeMillis(), session.getId(),
+                    session.getRuleName(), status, message);
+            entry.ruleId = session.getRuleId();
+            entries.add(0, entry);
             if (entries.size() > MAX_ENTRIES) entries = new ArrayList<>(entries.subList(0, MAX_ENTRIES));
             preferences.edit().putString(KEY_LOGS, gson.toJson(entries)).apply();
         }

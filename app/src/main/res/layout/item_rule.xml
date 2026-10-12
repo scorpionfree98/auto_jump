@@ -52,7 +52,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="触发条件"
+            android:text="运行方式"
             android:textColor="@color/text_secondary"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -73,6 +73,10 @@
             android:layout_marginTop="8dp"
             android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
 
+        <TextView android:id="@+id/tv_recent_run"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -84,6 +88,13 @@
             android:layout_height="wrap_content"
             android:gravity="end"
             android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_run_rule"
+                style="@style/Widget.AutoJump.Button.Primary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="运行" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_edit"

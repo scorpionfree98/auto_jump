@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand_primary">#4F46E5</color>
-    <color name="brand_primary_dark">#3730A3</color>
-    <color name="brand_primary_container">#EEF2FF</color>
+    <color name="brand_primary">#145B4C</color>
+    <color name="brand_primary_dark">#17433A</color>
+    <color name="brand_primary_container">#DFEFE6</color>
     <color name="brand_secondary">#0F766E</color>
-    <color name="page_background">#F6F7FB</color>
+    <color name="page_background">#F6F7F2</color>
     <color name="surface">#FFFFFF</color>
-    <color name="text_primary">#1D2939</color>
-    <color name="text_secondary">#667085</color>
-    <color name="outline">#D8DEE9</color>
-    <color name="divider">#EAECF0</color>
+    <color name="text_primary">#1B2B31</color>
+    <color name="text_secondary">#526563</color>
+    <color name="outline">#CBD8CF</color>
+    <color name="divider">#E5E9E2</color>
     <color name="success">#14804A</color>
     <color name="success_container">#E8F5ED</color>
     <color name="warning">#B54708</color>

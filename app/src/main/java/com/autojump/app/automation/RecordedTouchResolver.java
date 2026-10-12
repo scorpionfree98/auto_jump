@@ -38,6 +38,14 @@ public final class RecordedTouchResolver {
         if (!action.getTargetPackage().equals(foregroundPackage)) {
             return new Result(Decision.WAIT_FOR_PACKAGE, nowMs + 200, null, null);
         }
+        return resolveAfterDelay(action, actionStartedAtMs, nowMs, displayWidth, displayHeight, orientation);
+    }
+
+    /** User-selected timed replay: missing window events do not prevent dispatch. */
+    public Result resolveAfterDelay(RuleAction action, long actionStartedAtMs, long nowMs,
+                                    int displayWidth, int displayHeight, int orientation) {
+        if (action == null || action.getType() != ActionType.RECORDED_TOUCH)
+            return fail("当前动作不是真实触摸动作");
         long readyAt = safeAdd(actionStartedAtMs, Math.max(0, action.getDelayBeforeMs()));
         if (nowMs < readyAt) return new Result(Decision.WAIT_FOR_DELAY, readyAt, null, null);
         if (displayWidth <= 0 || displayHeight <= 0) return fail("当前屏幕尺寸无效");
@@ -45,13 +53,30 @@ public final class RecordedTouchResolver {
         double recordedRatio = action.getRecordedDisplayWidth()
                 / (double) action.getRecordedDisplayHeight();
         double currentRatio = displayWidth / (double) displayHeight;
-        if (Math.abs(recordedRatio - currentRatio) / Math.max(0.0001, recordedRatio) > 0.03) {
-            return fail("当前屏幕比例与录制时不同，请重新录制");
+        if (!Double.isFinite(recordedRatio) || recordedRatio <= 0
+                || Math.abs(recordedRatio - currentRatio) / recordedRatio > action.getScreenTolerancePercent() / 100d + 1e-9) {
+            return fail("屏幕比例变化超过 " + action.getScreenTolerancePercent() + "% 容差，可调整容差或重新录制");
         }
-        if (action.getTouchTrace().size() < 2 || action.getTouchDurationMs() <= 0) {
+        if (action.getTouchTrace().size() < 2 || action.getTouchTrace().size() > 256
+                || action.getTouchDurationMs() <= 0 || action.getTouchDurationMs() > 10_000L) {
             return fail("录制触摸轨迹无效");
         }
-        return new Result(Decision.REPLAY, 0, action.getTouchTrace(), null);
+        try {
+            return new Result(Decision.REPLAY, 0, mappedTrace(action, displayWidth, displayHeight), null);
+        } catch (IllegalArgumentException error) { return fail(error.getMessage()); }
+    }
+
+    public static List<TouchPoint> mappedTrace(RuleAction action, int width, int height) {
+        if (width <= 0 || height <= 0) throw new IllegalArgumentException("屏幕尺寸无效");
+        java.util.ArrayList<TouchPoint> mapped = new java.util.ArrayList<>();
+        for (TouchPoint point : action.getTouchTrace()) {
+            double x = point.getRelativeX() + action.getReplayOffsetXPx() / width;
+            double y = point.getRelativeY() + action.getReplayOffsetYPx() / height;
+            if (!Double.isFinite(x) || !Double.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)
+                throw new IllegalArgumentException("校准后落点超出屏幕，请减小 X/Y 偏移");
+            mapped.add(new TouchPoint(x,y,point.getElapsedMs()));
+        }
+        return mapped;
     }
 
     private Result fail(String message) {

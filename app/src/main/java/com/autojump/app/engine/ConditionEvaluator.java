@@ -20,6 +20,29 @@ import java.util.Calendar;
 import java.util.Set;
 
 public class ConditionEvaluator {
+    public String unavailableReason(Context context, RuleCondition c) {
+        if (c == null || c.getType() == null) return "条件数据无效";
+        if ((c.getType() == com.autojump.app.domain.ConditionType.WIFI
+                || c.getType() == com.autojump.app.domain.ConditionType.LOCATION)
+                && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return "需要精确位置权限以检查 WiFi/位置";
+        if (c.getType() == com.autojump.app.domain.ConditionType.BLUETOOTH
+                && Build.VERSION.SDK_INT >= 31
+                && ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) return "需要附近设备权限";
+        if (c.getType() == com.autojump.app.domain.ConditionType.WIFI) {
+            LocationManager location = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            if (location != null && Build.VERSION.SDK_INT >= 28 && !location.isLocationEnabled()) {
+                return "请开启系统定位开关，以读取 WiFi 名称";
+            }
+            WifiManager wifi = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wifi != null && wifi.isWifiEnabled() && wifi.getConnectionInfo() != null
+                    && WifiManager.UNKNOWN_SSID.equals(wifi.getConnectionInfo().getSSID())) {
+                return "WiFi 名称不可用，请检查定位权限及连接";
+            }
+        }
+        return null;
+    }
     public boolean matches(Context context, RuleCondition condition) {
         if (context == null || condition == null || condition.getType() == null) return false;
         try {

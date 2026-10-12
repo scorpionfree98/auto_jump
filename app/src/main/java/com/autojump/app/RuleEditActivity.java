@@ -1,4 +1,6 @@
 package com.autojump.app;
+import cn.local.jiojio.R;
+import cn.local.jiojio.BuildConfig;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -45,6 +47,9 @@ public class RuleEditActivity extends AppCompatActivity {
     private LinearLayout conditionsContainer;
     private LinearLayout actionsContainer;
     private SwitchCompat requestUnlock;
+    private SwitchCompat menuShortcut;
+    private SwitchCompat defaultInstruction;
+    private EditText shortcutRank;
     private Rule rule;
     private boolean isEdit;
     private int pendingActionIndex = -1;
@@ -56,13 +61,17 @@ public class RuleEditActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_rule_edit);
-        setTitle("规则编辑");
+        findViewById(R.id.btn_page_back).setOnClickListener(v -> finish());
+        setTitle("编辑指令");
 
         ruleName = findViewById(R.id.et_rule_name);
         priority = findViewById(R.id.et_priority);
         conditionsContainer = findViewById(R.id.ll_conditions);
         actionsContainer = findViewById(R.id.ll_actions);
         requestUnlock = findViewById(R.id.switch_request_unlock);
+        menuShortcut = findViewById(R.id.switch_menu_shortcut);
+        defaultInstruction = findViewById(R.id.switch_default_instruction);
+        shortcutRank = findViewById(R.id.et_shortcut_rank);
         Button addCondition = findViewById(R.id.btn_add_condition);
         Button addAction = findViewById(R.id.btn_add_action);
         Button save = findViewById(R.id.btn_save);
@@ -76,10 +85,34 @@ public class RuleEditActivity extends AppCompatActivity {
         }
         if (rule == null) rule = new Rule(UUID.randomUUID().toString(), "");
         showRule();
+        ((TextView) findViewById(R.id.tv_editor_title)).setText(isEdit ? "编辑指令" : "创建你的指令");
+        if (!rule.getConditions().isEmpty()) {
+            ((Button) findViewById(R.id.btn_advanced_rule)).setText(
+                    "高级设置 · 已有 " + rule.getConditions().size() + " 个运行条件");
+        }
 
         addCondition.setOnClickListener(v -> showAddConditionDialog());
         addAction.setOnClickListener(v -> showAddActionDialog());
         save.setOnClickListener(v -> saveRule());
+        findViewById(R.id.btn_quick_link).setOnClickListener(v -> showDeeplinkDialog(
+                !rule.getActions().isEmpty() && rule.getActions().get(0).getType() == ActionType.DEEPLINK ? 0 : -1));
+        findViewById(R.id.btn_quick_record).setOnClickListener(v -> {
+            if (rule.getActions().isEmpty()) {
+                Toast.makeText(this, "先设置要打开的页面，再录制点击", Toast.LENGTH_LONG).show();
+            } else launchClickEditor(-1);
+        });
+        findViewById(R.id.btn_quick_wait).setOnClickListener(v -> showWaitDialog(-1));
+        findViewById(R.id.btn_advanced_rule).setOnClickListener(v -> {
+            View advanced = findViewById(R.id.advanced_rule);
+            advanced.setVisibility(advanced.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+        });
+        findViewById(R.id.btn_save_test).setOnClickListener(v -> {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("保存并实际运行")
+                    .setMessage("会打开目标页面并执行保存的操作，包括打卡点击。")
+                    .setPositiveButton("保存并运行", (d, w) -> saveRule(true))
+                    .setNegativeButton("取消", null).show();
+        });
     }
 
     @Override
@@ -111,6 +144,9 @@ public class RuleEditActivity extends AppCompatActivity {
         ruleName.setText(rule.getName());
         priority.setText(String.valueOf(rule.getPriority()));
         requestUnlock.setChecked(rule.isRequestUnlockBeforeRun());
+        menuShortcut.setChecked(rule.isShowInShortcutMenu());
+        defaultInstruction.setChecked(rule.getId().equals(new com.autojump.app.data.InstructionSettings(this).defaultId()));
+        shortcutRank.setText(String.valueOf(rule.getShortcutRank()));
         refreshConditions();
         refreshActions();
     }
@@ -136,6 +172,12 @@ public class RuleEditActivity extends AppCompatActivity {
     private void refreshActions() {
         actionsContainer.removeAllViews();
         List<RuleAction> actions = rule.getActions();
+        if (actions.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("还没有操作。先添加要打开的页面，再录制点击。\n也可以只打开页面，直接保存。");
+            empty.setPadding(0, 16, 0, 16);
+            actionsContainer.addView(empty);
+        }
         for (int i = 0; i < actions.size(); i++) {
             final int index = i;
             View item = LayoutInflater.from(this)
@@ -145,7 +187,7 @@ public class RuleEditActivity extends AppCompatActivity {
             Button up = item.findViewById(R.id.btn_move_up);
             Button down = item.findViewById(R.id.btn_move_down);
             Button remove = item.findViewById(R.id.btn_remove_action);
-            description.setText((i + 1) + ". " + actions.get(i).getDescription());
+            description.setText((i + 1) + ". " + com.autojump.app.ui.ActionLabels.describe(actions.get(i)));
             edit.setOnClickListener(v -> editAction(index));
             up.setEnabled(i > 0);
             up.setOnClickListener(v -> moveAction(index, -1));
@@ -322,8 +364,10 @@ public class RuleEditActivity extends AppCompatActivity {
         EditText input = new EditText(this);
         input.setHint("如 example://page/path");
         if (index >= 0) input.setText(rule.getActions().get(index).getDeeplink());
+        else input.setText(SPUtil.getDefaultLink(this));
         new AlertDialog.Builder(this)
-                .setTitle(index >= 0 ? "编辑 deeplink" : "添加 deeplink")
+                .setTitle(index >= 0 ? "修改目标页面" : "打开哪个页面")
+                .setMessage("已填入默认链接，可以直接保存或粘贴其他应用链接。")
                 .setView(input)
                 .setPositiveButton("保存", (dialog, which) -> {
                     try {
@@ -408,6 +452,10 @@ public class RuleEditActivity extends AppCompatActivity {
     }
 
     private void saveRule() {
+        saveRule(false);
+    }
+
+    private void saveRule(boolean runNow) {
         String name = ruleName.getText().toString().trim();
         if (name.isEmpty()) {
             Toast.makeText(this, "请输入规则名称", Toast.LENGTH_SHORT).show();
@@ -421,6 +469,8 @@ public class RuleEditActivity extends AppCompatActivity {
             rule.setName(name);
             rule.setPriority(integer(priority, "优先级"));
             rule.setRequestUnlockBeforeRun(requestUnlock.isChecked());
+            rule.setShowInShortcutMenu(menuShortcut.isChecked());
+            rule.setShortcutRank(integer(shortcutRank, "菜单排序"));
             List<Rule> rules = SPUtil.getRuleList(this);
             boolean replaced = false;
             if (isEdit) {
@@ -434,7 +484,12 @@ public class RuleEditActivity extends AppCompatActivity {
             }
             if (!replaced) rules.add(rule);
             SPUtil.saveRuleList(this, rules);
-            Toast.makeText(this, "规则已保存", Toast.LENGTH_SHORT).show();
+            com.autojump.app.data.InstructionSettings settings = new com.autojump.app.data.InstructionSettings(this);
+            if (defaultInstruction.isChecked()) settings.setDefaultId(rule.getId());
+            else if (rule.getId().equals(settings.defaultId())) settings.setDefaultId("");
+            com.autojump.app.util.ShortcutUtil.refreshDynamicShortcut(this);
+            Toast.makeText(this, "指令已保存", Toast.LENGTH_SHORT).show();
+            if (runNow) new com.autojump.app.automation.AutomationOrchestrator(this).enqueue(this, rule);
             finish();
         } catch (IllegalArgumentException error) {
             showError(error);

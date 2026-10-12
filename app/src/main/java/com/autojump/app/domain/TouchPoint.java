@@ -11,7 +11,8 @@ public final class TouchPoint implements Serializable {
     public TouchPoint() {}
 
     public TouchPoint(double relativeX, double relativeY, long elapsedMs) {
-        if (relativeX < 0d || relativeX > 1d || relativeY < 0d || relativeY > 1d) {
+        if (!Double.isFinite(relativeX) || !Double.isFinite(relativeY)
+                || relativeX < 0d || relativeX > 1d || relativeY < 0d || relativeY > 1d) {
             throw new IllegalArgumentException("触摸坐标必须在 0 到 1 之间");
         }
         if (elapsedMs < 0) throw new IllegalArgumentException("触摸时间不能为负数");

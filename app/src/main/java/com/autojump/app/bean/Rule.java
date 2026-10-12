@@ -10,6 +10,12 @@ import java.util.List;
  * 跳转规则：条件 + 动作
  */
 public class Rule implements Serializable {
+    private boolean showInShortcutMenu;
+    private int shortcutRank;
+    public boolean isShowInShortcutMenu() { return showInShortcutMenu; }
+    public void setShowInShortcutMenu(boolean value) { showInShortcutMenu = value; }
+    public int getShortcutRank() { return shortcutRank; }
+    public void setShortcutRank(int value) { shortcutRank = value; }
     private String id;              // 唯一标识
     private String name;            // 规则名称
     private int priority;           // 优先级（数字越大越优先）

@@ -8,7 +8,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.autojump.app.R;
+import cn.local.jiojio.R;
 import com.autojump.app.bean.Rule;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import java.util.List;
@@ -19,6 +19,7 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
     private OnRuleOperateListener mListener;
 
     public interface OnRuleOperateListener {
+        void onRun(Rule rule);
         void onEdit(Rule rule);
         void onDelete(Rule rule);
         void onToggleEnabled(Rule rule, boolean enabled);
@@ -41,8 +42,7 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Rule rule = mList.get(position);
         holder.tvName.setText(rule.getName());
-        holder.tvPriority.setText("优先级: " + rule.getPriority()
-                + (rule.isRequestUnlockBeforeRun() ? " · 锁屏时请求系统解锁" : ""));
+        holder.tvPriority.setText(rule.isRequestUnlockBeforeRun() ? "锁屏亮屏 · 解锁后继续" : "在已解锁时运行");
 
         // 显示条件摘要
         StringBuilder conditionSummary = new StringBuilder();
@@ -52,13 +52,31 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
                 conditionSummary.append(rule.getConditions().get(i).getDescription());
             }
         } else {
-            conditionSummary.append("无条件（始终执行）");
+            conditionSummary.append("桌面点击 / 手机自动助手启动时执行");
         }
         holder.tvConditions.setText(conditionSummary.toString());
 
         // 显示动作数量
         int actionCount = rule.getActions() != null ? rule.getActions().size() : 0;
-        holder.tvActions.setText("动作: " + actionCount + " 个（按顺序执行）");
+        StringBuilder steps = new StringBuilder();
+        for (com.autojump.app.domain.RuleAction action : rule.getActions()) {
+            if (steps.length() > 0) steps.append("\n");
+            steps.append(com.autojump.app.ui.ActionLabels.describe(action));
+        }
+        holder.tvActions.setText(steps.length() == 0 ? "还没有操作" : steps.toString());
+        holder.tvRecent.setText("尚无运行记录");
+        for (com.autojump.app.automation.ExecutionLogStore.Entry entry :
+                new com.autojump.app.automation.ExecutionLogStore(mContext).getAll()) {
+            if (rule.getId().equals(entry.getRuleId())) {
+                String time = new java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+                        .format(new java.util.Date(entry.getTimestamp()));
+                String message = "COMPLETED".equals(entry.getStatus())
+                        ? "操作已发送，请在目标应用确认结果" : entry.getMessage();
+                holder.tvRecent.setText(time + " · " + message);
+                break;
+            }
+        }
+        holder.btnRun.setOnClickListener(v -> { if (mListener != null) mListener.onRun(rule); });
 
         // 启用/禁用状态
         holder.switchEnabled.setOnCheckedChangeListener(null);
@@ -86,9 +104,9 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvName, tvPriority, tvConditions, tvActions;
+        TextView tvName, tvPriority, tvConditions, tvActions, tvRecent;
         SwitchMaterial switchEnabled;
-        Button btnEdit, btnDelete;
+        Button btnEdit, btnDelete, btnRun;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -99,6 +117,8 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
             switchEnabled = itemView.findViewById(R.id.switch_enabled);
             btnEdit = itemView.findViewById(R.id.btn_edit);
             btnDelete = itemView.findViewById(R.id.btn_delete);
+            btnRun = itemView.findViewById(R.id.btn_run_rule);
+            tvRecent = itemView.findViewById(R.id.tv_recent_run);
         }
     }
 }

@@ -8,7 +8,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.autojump.app.R;
+import cn.local.jiojio.R;
 import com.autojump.app.bean.ConfigBean;
 import com.autojump.app.util.ShortcutUtil;
 import java.util.List;

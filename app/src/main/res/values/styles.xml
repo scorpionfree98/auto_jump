@@ -1,6 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AutoJump" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#145B4C</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F6F7F2</item>
+        <item name="android:navigationBarColor">#F6F7F2</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F6F7F2</item>
+    </style>
+
+
+    <style name="Theme.AutoJump.Base" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/brand_primary</item>
         <item name="colorPrimaryVariant">@color/brand_primary_dark</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -11,12 +21,15 @@
         <item name="android:colorAccent">@color/brand_primary</item>
         <item name="android:windowBackground">@color/page_background</item>
         <item name="android:navigationBarColor">@color/surface</item>
-        <item name="android:statusBarColor">@color/brand_primary_dark</item>
+        <item name="android:statusBarColor">@color/page_background</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.AutoJump.MaterialAlertDialog</item>
     </style>
+
+    <style name="Theme.AutoJump" parent="Theme.AutoJump.Base" />
 
     <style name="ThemeOverlay.AutoJump.MaterialAlertDialog"
         parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
@@ -26,9 +39,9 @@
 
     <style name="Widget.AutoJump.Card" parent="Widget.MaterialComponents.CardView">
         <item name="cardBackgroundColor">@color/surface</item>
-        <item name="cardCornerRadius">20dp</item>
+        <item name="cardCornerRadius">18dp</item>
         <item name="cardElevation">0dp</item>
-        <item name="strokeColor">@color/outline</item>
+        <item name="strokeColor">@color/divider</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
@@ -38,7 +51,7 @@
         <item name="android:textSize">15sp</item>
         <item name="android:textStyle">bold</item>
         <item name="backgroundTint">@color/brand_primary</item>
-        <item name="cornerRadius">14dp</item>
+        <item name="cornerRadius">12dp</item>
     </style>
 
     <style name="Widget.AutoJump.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
@@ -48,7 +61,7 @@
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">@color/brand_primary</item>
         <item name="cornerRadius">14dp</item>
-        <item name="strokeColor">@color/brand_primary</item>
+        <item name="strokeColor">@color/outline</item>
         <item name="strokeWidth">1dp</item>
     </style>
 

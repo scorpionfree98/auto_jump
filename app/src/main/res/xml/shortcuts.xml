@@ -9,7 +9,15 @@
         android:shortcutLongLabel="@string/shortcut_settings_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.autojump.app"
+            android:targetPackage="cn.local.toolkit"
             android:targetClass="com.autojump.app.RuleListActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="tools" android:enabled="true"
+        android:icon="@drawable/ic_app"
+        android:shortcutShortLabel="@string/shortcut_tools"
+        android:shortcutLongLabel="@string/shortcut_tools_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="cn.local.toolkit"
+            android:targetClass="cn.local.jiojio.ToolboxActivity" />
     </shortcut>
 </shortcuts>

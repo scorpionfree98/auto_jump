@@ -11,6 +11,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp">
+<com.google.android.material.button.MaterialButton android:id="@+id/btn_page_back" style="@style/Widget.AutoJump.Button.Text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="‹ 返回" />
 
         <TextView
             android:layout_width="match_parent"

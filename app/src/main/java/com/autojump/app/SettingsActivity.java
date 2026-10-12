@@ -1,4 +1,6 @@
 package com.autojump.app;
+import cn.local.jiojio.R;
+import cn.local.jiojio.BuildConfig;
 
 import android.app.AlertDialog;
 import android.os.Bundle;

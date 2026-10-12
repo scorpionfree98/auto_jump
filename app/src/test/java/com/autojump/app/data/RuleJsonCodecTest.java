@@ -30,7 +30,7 @@ public class RuleJsonCodecTest {
         String json = codec.encode(Arrays.asList(rule));
         List<Rule> decoded = codec.decode(json);
 
-        assertTrue(json.contains("\"schemaVersion\": 4"));
+        assertTrue(json.contains("\"schemaVersion\": " + RuleDocument.CURRENT_SCHEMA_VERSION));
         assertTrue(decoded.get(0).isRequestUnlockBeforeRun());
         assertEquals(ConditionType.WIFI, decoded.get(0).getConditions().get(1).getType());
         assertEquals(ActionType.CLICK, decoded.get(0).getActions().get(1).getType());

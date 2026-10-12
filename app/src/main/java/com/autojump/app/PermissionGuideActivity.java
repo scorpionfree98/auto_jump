@@ -1,4 +1,6 @@
 package com.autojump.app;
+import cn.local.jiojio.R;
+import cn.local.jiojio.BuildConfig;
 
 import android.Manifest;
 import android.app.AlertDialog;
@@ -53,11 +55,15 @@ public class PermissionGuideActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String clickTestSessionId;
     private boolean clickTestTargetObserved;
+    private final Runnable refreshStatus = new Runnable() {
+        @Override public void run() { updateStatus(); handler.postDelayed(this, 1000L); }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_permission_guide);
+        findViewById(R.id.btn_page_back).setOnClickListener(v -> finish());
         setTitle("权限与运行状态");
 
         accessibilityStatus = findViewById(R.id.tv_accessibility_status);
@@ -73,6 +79,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
         clickTestTarget = findViewById(R.id.btn_click_test_target);
 
         pendingStore = new PendingExecutionStore(this);
+        pendingStatus.setOnClickListener(v -> chooseTaskToCancel());
         recordingStore = new ClickRecordingStore(this);
         logStore = new ExecutionLogStore(this);
 
@@ -94,12 +101,33 @@ public class PermissionGuideActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        updateStatus();
+        handler.removeCallbacks(refreshStatus);
+        handler.post(refreshStatus);
+    }
+
+    @Override protected void onPause() {
+        handler.removeCallbacks(refreshStatus);
+        super.onPause();
+    }
+
+    private void chooseTaskToCancel() {
+        List<ExecutionSession> sessions = com.autojump.app.automation.QueuePolicy.ordered(pendingStore.getAll());
+        String[] labels = new String[sessions.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = sessions.get(i).getRuleName()
+                + " · " + statusName(sessions.get(i).getStatus());
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("取消单个任务")
+                .setItems(labels, (d, index) -> {
+                    com.autojump.app.automation.QueueCoordinator.cancel(this, sessions.get(index).getId());
+                    updateStatus();
+                }).setNegativeButton("返回", null).show();
     }
 
     private void updateStatus() {
         accessibilityStatus.setText(AccessibilityServiceState.isEnabled(this)
                 ? "自动点击服务：已开启 ✓" : "自动点击服务：未开启");
+        accessibilityStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this,
+                AccessibilityServiceState.isEnabled(this) ? R.color.success : R.color.warning));
 
         boolean hasLocation = hasLocationPermission();
         locationStatus.setText(hasLocation ? "已授权 ✓" : "未授权");
@@ -128,6 +156,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
         String viewId = getPackageName() + ":id/btn_click_test_target";
         ExecutionSession session = new AutomationOrchestrator(this).enqueue(this,
                 AccessibilityClickSelfTest.createRule(getPackageName(), viewId));
+        if (session == null) { clickTestStatus.setText("队列已满，请清理后重试"); resetClickTestControls(); return; }
         clickTestSessionId = session.getId();
         handler.postDelayed(() -> finishClickSelfTest(session.getId(), true),
                 CLICK_TEST_RESULT_TIMEOUT_MS);
@@ -193,11 +222,12 @@ public class PermissionGuideActivity extends AppCompatActivity {
     }
 
     private void showPendingSessions(List<ExecutionSession> sessions) {
+        sessions = com.autojump.app.automation.QueuePolicy.ordered(sessions);
         if (sessions.isEmpty()) {
-            pendingStatus.setText("没有待执行或失败的任务");
+            pendingStatus.setText("没有运行中或排队任务；失败原因见下方运行记录");
             return;
         }
-        StringBuilder text = new StringBuilder("共 ").append(sessions.size()).append(" 条\n");
+        StringBuilder text = new StringBuilder("共 ").append(sessions.size()).append(" 条 · 点此取消单个任务\n");
         for (int i = 0; i < sessions.size() && i < 5; i++) {
             ExecutionSession session = sessions.get(i);
             if (i > 0) text.append('\n');
@@ -255,6 +285,8 @@ public class PermissionGuideActivity extends AppCompatActivity {
         if (status == null) return "等待";
         switch (status) {
             case RUNNING: return "执行中";
+            case QUEUED: return "排队中";
+            case SKIPPED: return "条件跳过";
             case WAITING: return "等待中";
             case COMPLETED: return "已完成";
             case FAILED: return "失败";
@@ -318,7 +350,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
                 .setTitle("停止全部自动化？")
                 .setMessage("将删除所有待执行、等待中和失败的任务，并取消当前点击记录。已保存的规则不会删除。")
                 .setPositiveButton("停止并清空", (dialog, which) -> {
-                    pendingStore.clear();
+                    com.autojump.app.automation.QueueCoordinator.stopAll(this);
                     recordingStore.clear();
                     updateStatus();
                     Toast.makeText(this, "已停止全部待执行任务", Toast.LENGTH_SHORT).show();

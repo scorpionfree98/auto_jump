@@ -30,6 +30,26 @@ public class ExecutionSessionPolicyTest {
         assertNull(policy.findActiveForRule(Collections.emptyList(), null));
     }
 
+    @Test public void oldTaskCannotBlockFreshLaunchEvenAfterRecentUnlock() {
+        ExecutionSession old = session("rule-1", 1000, ExecutionSession.Status.WAITING);
+        old.setUpdatedAt(900_000);
+        assertTrue(policy.isExpired(old, 900_001));
+        assertFalse(policy.canReuse(old, 900_001));
+    }
+
+    @Test public void rapidDuplicateIsReusedButLaterRetryStartsFromBeginning() {
+        ExecutionSession waiting = session("rule-1", 1000, ExecutionSession.Status.WAITING);
+        assertTrue(policy.canReuse(waiting, 2000));
+        assertFalse(policy.canReuse(waiting, 16000));
+        assertFalse(policy.isExpired(waiting, 16000));
+    }
+
+    @Test public void runningGestureIsNotRestartedByAnotherTrigger() {
+        ExecutionSession running = session("rule-1", 1000, ExecutionSession.Status.RUNNING);
+        assertTrue(policy.canReuse(running, 60000));
+        assertFalse(policy.canReuse(running, 601000));
+    }
+
     private ExecutionSession session(String ruleId, long updatedAt,
                                      ExecutionSession.Status status) {
         Rule rule = new Rule(ruleId, "规则");

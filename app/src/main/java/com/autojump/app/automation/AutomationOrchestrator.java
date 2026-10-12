@@ -3,6 +3,7 @@ package com.autojump.app.automation;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.app.KeyguardManager;
 import android.net.Uri;
 import android.util.Log;
@@ -24,32 +25,32 @@ public class AutomationOrchestrator {
     }
 
     public ExecutionSession enqueue(Context context, Rule rule) {
-        ExecutionSession active = sessionPolicy.findActiveForRule(store.getAll(), rule.getId());
-        if (active != null) {
-            if (active.isRequestUnlockBeforeRun() && isKeyguardLocked(context)) {
-                launchUnlock(context, active);
-            }
-            return active;
-        }
+        return QueueCoordinator.enqueue(context, rule);
+    }
+
+    public void startSession(Context context, ExecutionSession session) {
         long now = System.currentTimeMillis();
-        ExecutionSession session = ExecutionSession.fromRule(rule, now);
-        store.upsert(session);
-        logs.append(session, "ENQUEUED", "规则已加入执行队列");
-        if (session.isRequestUnlockBeforeRun() && isKeyguardLocked(context)) {
+        if (isKeyguardLocked(context)) {
             session.setStatus(ExecutionSession.Status.WAITING);
             store.upsert(session);
-            logs.append(session, "WAITING", "等待系统解锁");
-            launchUnlock(context, session);
-            return session;
+            logs.append(session, "WAITING", "等待系统解锁（最多 2 分钟）");
+            if (session.isRequestUnlockBeforeRun()) launchUnlock(context, session);
+            return;
         }
         continueUntilExternalEvent(context, session, now);
-        return session;
     }
 
     public boolean resumeAfterUnlock(Context context, String sessionId) {
         ExecutionSession session = store.findById(sessionId);
-        if (session == null || isKeyguardLocked(context)) return false;
+        if (session == null || !QueuePolicy.live(session)
+                || session.getStatus() == ExecutionSession.Status.QUEUED
+                || session.getStatus() == ExecutionSession.Status.RUNNING
+                || isKeyguardLocked(context)) return false;
         long now = System.currentTimeMillis();
+        if (QueueCoordinator.expired(context, session)) {
+            cancelSession(session, "任务等待已超过 10 分钟，请重新运行");
+            return false;
+        }
         session.setStatus(ExecutionSession.Status.PENDING);
         session.setUpdatedAt(now);
         session.setLastError(null);
@@ -60,6 +61,10 @@ public class AutomationOrchestrator {
     }
 
     public void continueUntilExternalEvent(Context context, ExecutionSession session, long now) {
+        if (QueueCoordinator.expired(context, session)) {
+            cancelSession(session, "任务等待已超过 10 分钟，请重新运行");
+            return;
+        }
         RuleAction action = session.currentAction();
         if (action == null) {
             session.setStatus(ExecutionSession.Status.COMPLETED);
@@ -100,14 +105,45 @@ public class AutomationOrchestrator {
             try {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(action.getDeeplink()));
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                RuleAction next = session.getCurrentActionIndex() + 1 < session.getActions().size()
+                        ? session.getActions().get(session.getCurrentActionIndex() + 1) : null;
+                ResolveInfo resolved = context.getPackageManager().resolveActivity(intent, 0);
+                boolean matchingRecordedTouch = next != null
+                        && next.getType() == ActionType.RECORDED_TOUCH
+                        && resolved != null && resolved.activityInfo != null
+                        && next.getTargetPackage().equals(resolved.activityInfo.packageName)
+                        && AutoJumpAccessibilityService.connectedContext() != null;
+                if (matchingRecordedTouch) {
+                    // Persist and hand the delayed gesture to Android before opening the target.
+                    // Xiaomi may suspend our process as soon as the other app is foreground.
+                    session.advance(now);
+                    session.setStatus(ExecutionSession.Status.WAITING);
+                    store.upsert(session);
+                    if (!AutoJumpAccessibilityService.armRecordedTouch(session.getId(), next)) {
+                        return;
+                    }
+                    context.startActivity(intent);
+                    logs.append(session, "LINK_REQUESTED",
+                            "已请求打开目标链接；录制点击已提前交给系统等待执行");
+                    return;
+                }
                 context.startActivity(intent);
-                logs.append(session, "SUCCESS", "已打开 deeplink");
+                logs.append(session, "LINK_REQUESTED", "已请求打开目标链接，等待目标应用显示");
                 session.advance(now);
                 if (session.getStatus() == ExecutionSession.Status.COMPLETED) {
                     logs.append(session, "COMPLETED", "规则动作全部完成");
                     store.remove(session.getId());
                 }
-                else { session.setStatus(ExecutionSession.Status.WAITING); store.upsert(session); }
+                else {
+                    session.setStatus(ExecutionSession.Status.WAITING);
+                    store.upsert(session);
+                    if (!AccessibilityServiceState.isEnabled(context)
+                            && (session.currentAction().getType() == ActionType.CLICK
+                            || session.currentAction().getType() == ActionType.RECORDED_TOUCH)) {
+                        failOrContinue(context, session, session.currentAction(),
+                                "已打开目标页面，但自动点击服务未开启，请开启后重新运行", now);
+                    }
+                }
             } catch (ActivityNotFoundException error) {
                 failOrContinue(context, session, action, "没有应用可以处理该链接", now);
             } catch (RuntimeException error) {
@@ -135,6 +171,11 @@ public class AutomationOrchestrator {
     private boolean isKeyguardLocked(Context context) {
         KeyguardManager manager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
         return manager != null && manager.isKeyguardLocked();
+    }
+
+    public void cancelSession(ExecutionSession session, String reason) {
+        logs.append(session, "CANCELLED", reason);
+        store.remove(session.getId());
     }
 
     private void launchUnlock(Context context, ExecutionSession session) {
