@@ -16,6 +16,16 @@ public class RuleModelTest {
     }
 
     @Test
+    public void shortcutEmojiDefaultsAndRejectsUnsupportedText() {
+        Rule rule = new Rule("id", "name");
+        assertEquals(ShortcutEmoji.DEFAULT, rule.getShortcutEmoji());
+        rule.setShortcutEmoji("🚀");
+        assertEquals("🚀", rule.getShortcutEmoji());
+        rule.setShortcutEmoji("not-an-emoji");
+        assertEquals(ShortcutEmoji.DEFAULT, rule.getShortcutEmoji());
+    }
+
+    @Test
     public void timeConditionDefensivelyCopiesDays() {
         int[] days = {1, 5};
         RuleCondition condition = RuleCondition.time(days, 8, 0, 9, 30);

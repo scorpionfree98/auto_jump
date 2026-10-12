@@ -27,6 +27,7 @@ import com.autojump.app.automation.RecordingDeeplinkResolver;
 import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.domain.RuleCondition;
+import com.autojump.app.domain.ShortcutEmoji;
 import com.autojump.app.ui.ClickActionEditActivity;
 import com.autojump.app.util.SPUtil;
 import com.google.gson.Gson;
@@ -51,6 +52,7 @@ public class RuleEditActivity extends AppCompatActivity {
     private SwitchCompat menuShortcut;
     private SwitchCompat defaultInstruction;
     private EditText shortcutRank;
+    private Button shortcutIcon;
     private Rule rule;
     private boolean isEdit;
     private int pendingActionIndex = -1;
@@ -73,6 +75,7 @@ public class RuleEditActivity extends AppCompatActivity {
         menuShortcut = findViewById(R.id.switch_menu_shortcut);
         defaultInstruction = findViewById(R.id.switch_default_instruction);
         shortcutRank = findViewById(R.id.et_shortcut_rank);
+        shortcutIcon = findViewById(R.id.btn_shortcut_icon);
         Button addCondition = findViewById(R.id.btn_add_condition);
         Button addAction = findViewById(R.id.btn_add_action);
         Button save = findViewById(R.id.btn_save);
@@ -94,6 +97,7 @@ public class RuleEditActivity extends AppCompatActivity {
 
         addCondition.setOnClickListener(v -> showAddConditionDialog());
         addAction.setOnClickListener(v -> showAddActionDialog());
+        shortcutIcon.setOnClickListener(v -> showShortcutIconDialog());
         save.setOnClickListener(v -> saveRule());
         findViewById(R.id.btn_quick_link).setOnClickListener(v -> showDeeplinkDialog(
                 !rule.getActions().isEmpty() && rule.getActions().get(0).getType() == ActionType.DEEPLINK ? 0 : -1));
@@ -148,8 +152,29 @@ public class RuleEditActivity extends AppCompatActivity {
         menuShortcut.setChecked(rule.isShowInShortcutMenu());
         defaultInstruction.setChecked(rule.getId().equals(new com.autojump.app.data.InstructionSettings(this).defaultId()));
         shortcutRank.setText(String.valueOf(rule.getShortcutRank()));
+        updateShortcutIconButton();
         refreshConditions();
         refreshActions();
+    }
+
+    private void showShortcutIconDialog() {
+        List<String> options = ShortcutEmoji.options();
+        String[] labels = new String[options.size()];
+        for (int i = 0; i < options.size(); i++) labels[i] = options.get(i) + "  使用这个图标";
+        int checked = Math.max(0, options.indexOf(rule.getShortcutEmoji()));
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("选择指令图标")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    rule.setShortcutEmoji(options.get(which));
+                    updateShortcutIconButton();
+                    dialog.dismiss();
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void updateShortcutIconButton() {
+        shortcutIcon.setText("指令图标  " + rule.getShortcutEmoji());
     }
 
     private void refreshConditions() {

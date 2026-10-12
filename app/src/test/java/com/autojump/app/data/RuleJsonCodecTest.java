@@ -19,6 +19,7 @@ public class RuleJsonCodecTest {
     public void schemaV4RoundTripsTypedConditionsActionsAndUnlockPreference() {
         Rule rule = new Rule("rule-1", "工作日打卡");
         rule.setRequestUnlockBeforeRun(true);
+        rule.setShortcutEmoji("🏢");
         rule.setConditions(Arrays.asList(
                 RuleCondition.time(new int[]{1, 2, 3, 4, 5}, 8, 0, 9, 0),
                 RuleCondition.wifi("Office")));
@@ -32,6 +33,7 @@ public class RuleJsonCodecTest {
 
         assertTrue(json.contains("\"schemaVersion\": " + RuleDocument.CURRENT_SCHEMA_VERSION));
         assertTrue(decoded.get(0).isRequestUnlockBeforeRun());
+        assertEquals("🏢", decoded.get(0).getShortcutEmoji());
         assertEquals(ConditionType.WIFI, decoded.get(0).getConditions().get(1).getType());
         assertEquals(ActionType.CLICK, decoded.get(0).getActions().get(1).getType());
         assertEquals("com.example:id/check_in", decoded.get(0).getActions().get(1).getViewId());

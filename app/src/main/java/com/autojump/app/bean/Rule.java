@@ -3,6 +3,7 @@ package com.autojump.app.bean;
 import java.io.Serializable;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.domain.RuleCondition;
+import com.autojump.app.domain.ShortcutEmoji;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,10 +13,13 @@ import java.util.List;
 public class Rule implements Serializable {
     private boolean showInShortcutMenu;
     private int shortcutRank;
+    private String shortcutEmoji;
     public boolean isShowInShortcutMenu() { return showInShortcutMenu; }
     public void setShowInShortcutMenu(boolean value) { showInShortcutMenu = value; }
     public int getShortcutRank() { return shortcutRank; }
     public void setShortcutRank(int value) { shortcutRank = value; }
+    public String getShortcutEmoji() { return ShortcutEmoji.normalize(shortcutEmoji); }
+    public void setShortcutEmoji(String value) { shortcutEmoji = ShortcutEmoji.normalize(value); }
     private String id;              // 唯一标识
     private String name;            // 规则名称
     private int priority;           // 优先级（数字越大越优先）

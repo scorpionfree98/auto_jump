@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
-import androidx.core.graphics.drawable.IconCompat;
 import com.autojump.app.bean.Rule;
 import com.autojump.app.data.RuleRepository;
 import java.util.ArrayList;
@@ -22,7 +21,7 @@ public final class ShortcutUtil {
                 .setAction(com.autojump.app.MainActivity.ACTION_RUN).putExtra("rule_id", rule.getId());
         return new ShortcutInfoCompat.Builder(context, shortcutId(rule)).setShortLabel(label)
                 .setLongLabel(rule.getName()).setRank(rank)
-                .setIcon(IconCompat.createWithResource(context, cn.local.jiojio.R.drawable.ic_app))
+                .setIcon(ShortcutIconRenderer.render(context, rule.getShortcutEmoji()))
                 .setIntent(run).build();
     }
     public static void refreshDynamicShortcut(Context context) {
