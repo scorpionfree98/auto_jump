@@ -24,4 +24,15 @@ public class RecordedTouchScheduleTest {
         assertThrows(IllegalArgumentException.class,
                 () -> schedule.calculate(Long.MAX_VALUE, 20, 2, 800, 60_000));
     }
+
+    @Test public void consecutiveActionsStartAfterPreviousActionEnds() {
+        RecordedTouchSchedule.Result first = schedule.calculate(
+                1000, 100, 1, 800, 60_000);
+        RecordedTouchSchedule.Result second = schedule.calculate(
+                first.getEnd() + 500, 200, 2, 300, 60_000);
+
+        assertEquals(Arrays.asList(1000L), first.getStarts());
+        assertEquals(Arrays.asList(1600L, 2100L), second.getStarts());
+        assertEquals(2300L, second.getEnd());
+    }
 }

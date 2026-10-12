@@ -26,10 +26,12 @@ import com.autojump.app.automation.ClickRecordingStore;
 import com.autojump.app.automation.ExecutionLogStore;
 import com.autojump.app.automation.ExecutionSession;
 import com.autojump.app.automation.PendingExecutionStore;
+import com.autojump.app.shizuku.ShizukuAccessibilityRecovery;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import rikka.shizuku.Shizuku;
 
 /** Explains optional permissions and gives the user control over automation state. */
 public class PermissionGuideActivity extends AppCompatActivity {
@@ -38,6 +40,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
     private static final long CLICK_TEST_RESULT_TIMEOUT_MS = 7_000L;
 
     private TextView accessibilityStatus;
+    private TextView shizukuStatus;
     private TextView clickTestStatus;
     private TextView locationStatus;
     private TextView bluetoothStatus;
@@ -48,6 +51,18 @@ public class PermissionGuideActivity extends AppCompatActivity {
     private Button requestBluetooth;
     private Button runClickTest;
     private Button clickTestTarget;
+    private Button recoverWithShizuku;
+    private boolean shizukuRecoveryRunning;
+    private final Shizuku.OnBinderReceivedListener shizukuBinderReceived = this::updateStatus;
+    private final Shizuku.OnBinderDeadListener shizukuBinderDead = this::updateStatus;
+    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionResult =
+            (requestCode, grantResult) -> {
+                if (requestCode != ShizukuAccessibilityRecovery.REQUEST_PERMISSION) return;
+                if (grantResult == PackageManager.PERMISSION_GRANTED) startShizukuRecovery();
+                else {
+                    shizukuStatus.setText("Shizuku 授权被拒绝；可继续手动打开无障碍设置");
+                }
+            };
 
     private PendingExecutionStore pendingStore;
     private ClickRecordingStore recordingStore;
@@ -67,6 +82,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
         setTitle("权限与运行状态");
 
         accessibilityStatus = findViewById(R.id.tv_accessibility_status);
+        shizukuStatus = findViewById(R.id.tv_shizuku_status);
         clickTestStatus = findViewById(R.id.tv_click_test_status);
         locationStatus = findViewById(R.id.tv_location_status);
         bluetoothStatus = findViewById(R.id.tv_bluetooth_status);
@@ -77,6 +93,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
         requestBluetooth = findViewById(R.id.btn_request_bluetooth);
         runClickTest = findViewById(R.id.btn_run_click_test);
         clickTestTarget = findViewById(R.id.btn_click_test_target);
+        recoverWithShizuku = findViewById(R.id.btn_shizuku_recover);
 
         pendingStore = new PendingExecutionStore(this);
         pendingStatus.setOnClickListener(v -> chooseTaskToCancel());
@@ -85,6 +102,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
 
         findViewById(R.id.btn_open_accessibility_settings).setOnClickListener(
                 v -> openAccessibilitySettings());
+        recoverWithShizuku.setOnClickListener(v -> onShizukuRecoveryClicked());
         runClickTest.setOnClickListener(v -> runClickSelfTest());
         clickTestTarget.setOnClickListener(v -> onClickTestTargetObserved());
         requestLocation.setOnClickListener(v -> requestLocationPermission());
@@ -96,6 +114,9 @@ public class PermissionGuideActivity extends AppCompatActivity {
             updateStatus();
             Toast.makeText(this, "运行记录已清空", Toast.LENGTH_SHORT).show();
         });
+        Shizuku.addBinderReceivedListenerSticky(shizukuBinderReceived);
+        Shizuku.addBinderDeadListener(shizukuBinderDead);
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionResult);
     }
 
     @Override
@@ -128,6 +149,7 @@ public class PermissionGuideActivity extends AppCompatActivity {
                 ? "自动点击服务：已开启 ✓" : "自动点击服务：未开启");
         accessibilityStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this,
                 AccessibilityServiceState.isEnabled(this) ? R.color.success : R.color.warning));
+        updateShizukuStatus();
 
         boolean hasLocation = hasLocationPermission();
         locationStatus.setText(hasLocation ? "已授权 ✓" : "未授权");
@@ -140,6 +162,64 @@ public class PermissionGuideActivity extends AppCompatActivity {
         showPendingSessions(pendingStore.getAll());
         showRecording(recordingStore.get());
         showLogs(logStore.getAll());
+    }
+
+    private void updateShizukuStatus() {
+        if (shizukuRecoveryRunning) return;
+        if (AccessibilityServiceState.isEnabled(this)) {
+            shizukuStatus.setText("自动点击服务已开启，无需恢复");
+            recoverWithShizuku.setEnabled(false);
+            return;
+        }
+        recoverWithShizuku.setEnabled(true);
+        switch (ShizukuAccessibilityRecovery.availability()) {
+            case READY:
+                shizukuStatus.setText("Shizuku 已连接并授权，可尝试恢复自动点击服务");
+                break;
+            case PERMISSION_REQUIRED:
+                shizukuStatus.setText("Shizuku 已运行，需要你确认一次授权");
+                break;
+            default:
+                shizukuStatus.setText("Shizuku 未运行；此功能为可选增强，不影响手动设置");
+        }
+    }
+
+    private void onShizukuRecoveryClicked() {
+        ShizukuAccessibilityRecovery.Availability availability =
+                ShizukuAccessibilityRecovery.availability();
+        if (availability == ShizukuAccessibilityRecovery.Availability.NOT_RUNNING) {
+            shizukuStatus.setText("请先安装并启动 Shizuku，再返回重试");
+            try {
+                Intent launch = getPackageManager().getLaunchIntentForPackage(
+                        "moe.shizuku.privileged.api");
+                if (launch != null) startActivity(launch);
+            } catch (RuntimeException ignored) {
+                // The status text is the actionable fallback.
+            }
+            return;
+        }
+        if (availability == ShizukuAccessibilityRecovery.Availability.PERMISSION_REQUIRED) {
+            if (ShizukuAccessibilityRecovery.requestPermission()) {
+                shizukuStatus.setText("等待 Shizuku 授权结果…");
+            } else {
+                shizukuStatus.setText("无法请求 Shizuku 授权，请确认 Shizuku 正在运行");
+            }
+            return;
+        }
+        startShizukuRecovery();
+    }
+
+    private void startShizukuRecovery() {
+        if (shizukuRecoveryRunning) return;
+        shizukuRecoveryRunning = true;
+        recoverWithShizuku.setEnabled(false);
+        shizukuStatus.setText("正在通过 Shizuku 恢复并回读系统状态…");
+        ShizukuAccessibilityRecovery.recover(this, (success, message) -> {
+            shizukuRecoveryRunning = false;
+            updateStatus();
+            shizukuStatus.setText(message);
+            if (!success) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        });
     }
 
     private void runClickSelfTest() {
@@ -369,6 +449,9 @@ public class PermissionGuideActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        Shizuku.removeBinderReceivedListener(shizukuBinderReceived);
+        Shizuku.removeBinderDeadListener(shizukuBinderDead);
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionResult);
         super.onDestroy();
     }
 }

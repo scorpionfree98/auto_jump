@@ -68,6 +68,29 @@
                     android:layout_marginTop="12dp"
                     android:text="打开无障碍设置" />
 
+                <TextView
+                    android:id="@+id/tv_shizuku_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Shizuku 状态检查中…"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_shizuku_recover"
+                    style="@style/Widget.AutoJump.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="使用 Shizuku 恢复" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="可选增强：需要 Shizuku 正在运行并由你授权。只恢复本应用的自动点击服务，不保证重启后永久有效。"
+                    android:textAppearance="@style/TextAppearance.AutoJump.Caption" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"

@@ -38,7 +38,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
-    buildFeatures { buildConfig true }
+    buildFeatures { buildConfig true; aidl true }
     // Queue tests do not load maps. Omit ARM-only map natives solely for the
     // explicitly isolated x86 emulator debug build; release builds are forbidden.
     if (queueRuntimeOnly) packaging { jniLibs { excludes += ['**/*.so'] } }
@@ -56,5 +56,8 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.amap.api:3dmap-location-search:11.3.100_loc11.3.000_sea9.8.1'
+    def shizukuVersion = '12.2.0'
+    implementation "dev.rikka.shizuku:api:$shizukuVersion"
+    implementation "dev.rikka.shizuku:provider:$shizukuVersion"
     testImplementation 'junit:junit:4.13.2'
 }

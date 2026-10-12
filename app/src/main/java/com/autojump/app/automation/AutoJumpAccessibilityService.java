@@ -21,6 +21,7 @@ import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.domain.TouchPoint;
 import com.autojump.app.ui.ClickActionEditActivity;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -311,11 +312,41 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                         != ClickRecordingStore.Status.CONFIRMING) return;
                 recordingOverlay.showConfirmation(requestId, touch.getTargetPackage(),
                         new RecordingOverlayController.ConfirmationListener() {
-                            @Override public void onConfirm(String confirmedRequestId) {
-                                if (recordingStore.confirm(confirmedRequestId).getStatus()
+                            @Override public void onContinue(String continuedRequestId) {
+                                ClickRecordingStore.State next = recordingStore.continueCapture(
+                                        continuedRequestId, System.currentTimeMillis());
+                                if (next.getStatus() == ClickRecordingStore.Status.ARMED) {
+                                    Toast.makeText(AutoJumpAccessibilityService.this,
+                                            "请执行下一个点击或滑动，完成后可继续录制",
+                                            Toast.LENGTH_LONG).show();
+                                    startTouchCapture(next);
+                                } else if (next.getStatus()
                                         == ClickRecordingStore.Status.CAPTURED) {
                                     Toast.makeText(AutoJumpAccessibilityService.this,
-                                            "真实触摸轨迹已保存", Toast.LENGTH_SHORT).show();
+                                            "已达到 "
+                                                    + ClickRecordingStore.MAX_RECORDED_TOUCHES
+                                                    + " 个动作上限并自动完成",
+                                            Toast.LENGTH_LONG).show();
+                                    returnToClickEditor();
+                                } else {
+                                    Toast.makeText(AutoJumpAccessibilityService.this,
+                                            "一次最多录制 "
+                                                    + ClickRecordingStore.MAX_RECORDED_TOUCHES
+                                                    + " 个动作，请点完成保存",
+                                            Toast.LENGTH_LONG).show();
+                                    recordingOverlay.showConfirmation(continuedRequestId,
+                                            touch.getTargetPackage(), this);
+                                }
+                            }
+
+                            @Override public void onFinish(String confirmedRequestId) {
+                                ClickRecordingStore.State finished =
+                                        recordingStore.finishCapture(confirmedRequestId);
+                                if (finished.getStatus()
+                                        == ClickRecordingStore.Status.CAPTURED) {
+                                    Toast.makeText(AutoJumpAccessibilityService.this,
+                                            "已保存 " + finished.getRecordedTouches().size()
+                                                    + " 个触摸动作", Toast.LENGTH_SHORT).show();
                                 }
                                 returnToClickEditor();
                             }
@@ -520,53 +551,75 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 || session.isCancelRequested() || isKeyguardLocked()) {
             return false;
         }
-        DisplayMetrics metrics = recordedMetrics(action);
-        RecordedTouchResolver.Result resolved = recordedTouchResolver.resolveAfterDelay(action,
-                0L, Math.max(0L, action.getDelayBeforeMs()), metrics.widthPixels,
-                metrics.heightPixels, getResources().getConfiguration().orientation);
-        if (resolved.getDecision() != RecordedTouchResolver.Decision.REPLAY) {
-            fail(session, resolved.getMessage() == null
-                    ? "无法准备录制点击" : resolved.getMessage(), System.currentTimeMillis());
-            return false;
-        }
-
-        List<TouchPoint> trace = resolved.getTrace();
-        Path path = new Path();
-        TouchPoint first = trace.get(0);
-        path.moveTo((float) (first.getRelativeX() * metrics.widthPixels),
-                (float) (first.getRelativeY() * metrics.heightPixels));
-        for (int index = 1; index < trace.size(); index++) {
-            TouchPoint point = trace.get(index);
-            path.lineTo((float) (point.getRelativeX() * metrics.widthPixels),
-                    (float) (point.getRelativeY() * metrics.heightPixels));
-        }
-        long duration = Math.max(1L, action.getTouchDurationMs());
-        long start = Math.max(0L, action.getDelayBeforeMs());
-        final RecordedTouchSchedule.Result timing;
-        try {
-            timing = recordedTouchSchedule.calculate(start, duration, action.getRepeatCount(),
-                    action.getRepeatIntervalMs(), GestureDescription.getMaxGestureDuration());
-        } catch (IllegalArgumentException error) {
-            fail(session, error.getMessage(), System.currentTimeMillis());
-            return false;
-        }
         GestureDescription.Builder builder = new GestureDescription.Builder();
-        for (long strokeStart : timing.getStarts()) {
-            builder.addStroke(new GestureDescription.StrokeDescription(
-                    path, strokeStart, duration));
+        List<RuleAction> preparedActions = new ArrayList<>();
+        int startIndex = session.getCurrentActionIndex();
+        long cursor = 0L;
+        int strokeCount = 0;
+        TouchPoint first = null;
+        DisplayMetrics firstMetrics = null;
+        try {
+            for (int actionIndex = startIndex; actionIndex < session.getActions().size(); actionIndex++) {
+                RuleAction candidate = session.getActions().get(actionIndex);
+                if (candidate.getType() != ActionType.RECORDED_TOUCH
+                        || !action.getTargetPackage().equals(candidate.getTargetPackage())) break;
+                if (preparedActions.size() >= ClickRecordingStore.MAX_RECORDED_TOUCHES) {
+                    throw new IllegalArgumentException("连续录制动作超过一次可提交上限");
+                }
+                if (strokeCount + candidate.getRepeatCount()
+                        > GestureDescription.getMaxStrokeCount()) {
+                    throw new IllegalArgumentException("连续录制笔画超过系统上限");
+                }
+                DisplayMetrics metrics = recordedMetrics(candidate);
+                RecordedTouchResolver.Result resolved = recordedTouchResolver.resolveAfterDelay(
+                        candidate, 0L, Math.max(0L, candidate.getDelayBeforeMs()),
+                        metrics.widthPixels, metrics.heightPixels,
+                        getResources().getConfiguration().orientation);
+                if (resolved.getDecision() != RecordedTouchResolver.Decision.REPLAY) {
+                    throw new IllegalArgumentException(resolved.getMessage() == null
+                            ? "无法准备连续录制动作" : resolved.getMessage());
+                }
+                List<TouchPoint> trace = resolved.getTrace();
+                Path path = recordedPath(trace, metrics.widthPixels, metrics.heightPixels);
+                if (first == null) {
+                    first = trace.get(0);
+                    firstMetrics = metrics;
+                }
+                long duration = Math.max(1L, candidate.getTouchDurationMs());
+                long baseStart = Math.addExact(cursor,
+                        Math.max(0L, candidate.getDelayBeforeMs()));
+                RecordedTouchSchedule.Result timing = recordedTouchSchedule.calculate(
+                        baseStart, duration, candidate.getRepeatCount(),
+                        candidate.getRepeatIntervalMs(),
+                        GestureDescription.getMaxGestureDuration());
+                for (long strokeStart : timing.getStarts()) {
+                    builder.addStroke(new GestureDescription.StrokeDescription(
+                            path, strokeStart, duration));
+                }
+                cursor = timing.getEnd();
+                strokeCount += candidate.getRepeatCount();
+                preparedActions.add(candidate);
+            }
+        } catch (ArithmeticException | IllegalArgumentException error) {
+            fail(session, error.getMessage() == null ? "连续录制时间参数无效"
+                    : error.getMessage(), System.currentTimeMillis());
+            return false;
+        }
+        if (preparedActions.isEmpty() || first == null || firstMetrics == null) {
+            fail(session, "没有可提交的录制动作", System.currentTimeMillis());
+            return false;
         }
         GestureDescription gesture = builder.build();
         logs.append(session, "REPLAY_POSITION", "已预提交回放落点 "
-                + Math.round(first.getRelativeX() * metrics.widthPixels) + ","
-                + Math.round(first.getRelativeY() * metrics.heightPixels) + " px；延迟 "
-                + start + "ms；次数 " + action.getRepeatCount());
+                + Math.round(first.getRelativeX() * firstMetrics.widthPixels) + ","
+                + Math.round(first.getRelativeY() * firstMetrics.heightPixels) + " px；连续动作 "
+                + preparedActions.size() + " 个；总笔画 " + strokeCount);
         session.setStatus(ExecutionSession.Status.RUNNING);
         store.upsert(session);
+        int preparedActionCount = preparedActions.size();
         boolean accepted = dispatchGesture(gesture, new GestureResultCallback() {
             @Override public void onCompleted(GestureDescription gestureDescription) {
-                completeAction(sessionId, ClickDispatchResult.recordedTouch(
-                        action.getTouchDurationMs(), action.getTouchTrace().size(),
-                        action.getRepeatCount()));
+                completeRecordedActions(sessionId, preparedActionCount);
             }
 
             @Override public void onCancelled(GestureDescription gestureDescription) {
@@ -581,6 +634,49 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                     System.currentTimeMillis());
         }
         return accepted;
+    }
+
+    private Path recordedPath(List<TouchPoint> trace, int width, int height) {
+        Path path = new Path();
+        TouchPoint first = trace.get(0);
+        path.moveTo((float) (first.getRelativeX() * width),
+                (float) (first.getRelativeY() * height));
+        for (int index = 1; index < trace.size(); index++) {
+            TouchPoint point = trace.get(index);
+            path.lineTo((float) (point.getRelativeX() * width),
+                    (float) (point.getRelativeY() * height));
+        }
+        return path;
+    }
+
+    private void completeRecordedActions(String sessionId, int actionCount) {
+        ExecutionSession session = store.findById(sessionId);
+        if (session == null || session.getStatus() != ExecutionSession.Status.RUNNING) return;
+        if (session.isCancelRequested()) {
+            logs.append(session, session.getCancellationStatus(),
+                    session.getCancellationReason() + "；未发送后续动作");
+            store.remove(sessionId);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (int index = 0; index < actionCount; index++) {
+            RuleAction completed = session.currentAction();
+            if (completed == null || completed.getType() != ActionType.RECORDED_TOUCH) {
+                fail(session, "连续录制动作状态已变化", now);
+                return;
+            }
+            logs.append(session, "GESTURE_DISPATCHED", "已完成连续录制动作 "
+                    + (index + 1) + "/" + actionCount);
+            session.advance(now);
+        }
+        if (session.getStatus() == ExecutionSession.Status.COMPLETED) {
+            logs.append(session, "COMPLETED", "规则动作已全部派发");
+            store.remove(sessionId);
+            return;
+        }
+        store.upsert(session);
+        orchestrator.continueUntilExternalEvent(this, session, now);
+        scheduleIfPending(sessionId, 50);
     }
 
     private interface GestureDispatchListener {

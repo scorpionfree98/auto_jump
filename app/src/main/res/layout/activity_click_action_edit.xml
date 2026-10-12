@@ -3,7 +3,7 @@
   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
     <com.google.android.material.button.MaterialButton android:id="@+id/btn_page_back" style="@style/Widget.AutoJump.Button.Text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="‹ 返回"/>
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="录制点击" android:textAppearance="@style/TextAppearance.AutoJump.PageTitle"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="在目标页面点悬浮窗开始，再点击按钮。确认后返回这里保存。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="在目标页面点悬浮窗开始，完成一个点击或滑动后可继续录制；点“完成”后返回这里保存。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
     <com.google.android.material.card.MaterialCardView style="@style/Widget.AutoJump.Card" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp">
       <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
         <TextView android:id="@+id/tv_service_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="自动点击服务" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
@@ -19,7 +19,7 @@
         <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="两次点击间隔（毫秒，1000 = 1 秒）">
           <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_repeat_interval" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="800"/>
         </com.google.android.material.textfield.TextInputLayout>
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="重复次数用于同一位置；不同按钮请在指令中分别添加操作。正式执行时不会出现录制悬浮窗。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="可一次连续录制多个按钮或滑动；保存后会生成独立动作，能在指令时间线逐条排序和调整延迟。重复次数仅用于单个录制动作。" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="屏幕适配与落点校准" android:textAppearance="@style/TextAppearance.AutoJump.Body"/>
         <com.google.android.material.textfield.TextInputLayout style="@style/Widget.AutoJump.TextInputLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="屏幕比例容差（1%—25%，默认 10%）">
           <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_screen_tolerance" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="10"/>

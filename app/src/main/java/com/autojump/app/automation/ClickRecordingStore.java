@@ -3,6 +3,9 @@ package com.autojump.app.automation;
 import android.content.Context;
 import android.content.SharedPreferences;
 import com.google.gson.Gson;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 public class ClickRecordingStore {
@@ -21,6 +24,7 @@ public class ClickRecordingStore {
         private String targetPackage;
         private RecordedClick recordedClick;
         private RecordedTouch recordedTouch;
+        private List<RecordedTouch> recordedTouches;
         private RecordedTouch pendingRecordedTouch;
         private String rejectionReason;
 
@@ -33,11 +37,22 @@ public class ClickRecordingStore {
         public String getDeeplink() { return deeplink; }
         public String getTargetPackage() { return targetPackage; }
         public RecordedClick getRecordedClick() { return recordedClick; }
-        public RecordedTouch getRecordedTouch() { return recordedTouch; }
+        public RecordedTouch getRecordedTouch() {
+            List<RecordedTouch> touches = getRecordedTouches();
+            return touches.isEmpty() ? recordedTouch : touches.get(0);
+        }
+        public List<RecordedTouch> getRecordedTouches() {
+            if (recordedTouches == null || recordedTouches.isEmpty()) {
+                return recordedTouch == null ? Collections.emptyList()
+                        : Collections.singletonList(recordedTouch);
+            }
+            return Collections.unmodifiableList(recordedTouches);
+        }
         public String getRejectionReason() { return rejectionReason; }
     }
 
     public static final long DEFAULT_TTL_MS = 5 * 60 * 1000L;
+    public static final int MAX_RECORDED_TOUCHES = 8;
     private static final Object LOCK = new Object();
     private static final String SP_NAME = "automation_execution_sp";
     private static final String KEY_STATE = "click_recording_state";
@@ -145,14 +160,37 @@ public class ClickRecordingStore {
     }
 
     public State confirm(String requestId) {
+        return finishCapture(requestId);
+    }
+
+    public State finishCapture(String requestId) {
         synchronized (LOCK) {
             State state = get();
             if (state.getStatus() != Status.CONFIRMING || requestId == null
                     || !requestId.equals(state.getRequestId())
                     || state.pendingRecordedTouch == null) return state;
+            if (state.getRecordedTouches().size() >= MAX_RECORDED_TOUCHES) return state;
+            appendPending(state);
             state.status = Status.CAPTURED;
-            state.recordedTouch = state.pendingRecordedTouch;
-            state.pendingRecordedTouch = null;
+            save(state);
+            return state;
+        }
+    }
+
+    public State continueCapture(String requestId, long now) {
+        synchronized (LOCK) {
+            State state = get();
+            if (state.getStatus() != Status.CONFIRMING || requestId == null
+                    || !requestId.equals(state.getRequestId())
+                    || state.pendingRecordedTouch == null) return state;
+            appendPending(state);
+            if (state.getRecordedTouches().size() >= MAX_RECORDED_TOUCHES) {
+                state.status = Status.CAPTURED;
+            } else {
+                state.status = Status.ARMED;
+                state.startedAt = now;
+                state.expiresAt = now + DEFAULT_TTL_MS;
+            }
             save(state);
             return state;
         }
@@ -187,6 +225,13 @@ public class ClickRecordingStore {
     }
 
     public void clear() { preferences.edit().remove(KEY_STATE).apply(); }
+
+    private void appendPending(State state) {
+        if (state.recordedTouches == null) state.recordedTouches = new ArrayList<>();
+        state.recordedTouches.add(state.pendingRecordedTouch);
+        state.recordedTouch = state.recordedTouches.get(0);
+        state.pendingRecordedTouch = null;
+    }
 
     private void save(State state) {
         preferences.edit().putString(KEY_STATE, gson.toJson(state)).apply();

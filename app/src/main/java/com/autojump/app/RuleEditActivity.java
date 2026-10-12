@@ -31,6 +31,7 @@ import com.autojump.app.ui.ClickActionEditActivity;
 import com.autojump.app.util.SPUtil;
 import com.google.gson.Gson;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -424,18 +425,44 @@ public class RuleEditActivity extends AppCompatActivity {
             return;
         }
         try {
-            String json = data.getStringExtra(ClickActionEditActivity.EXTRA_RESULT_ACTION_JSON);
-            RuleAction action = gson.fromJson(json, RuleAction.class);
-            if (action == null || (action.getType() != ActionType.CLICK
-                    && action.getType() != ActionType.RECORDED_TOUCH)) {
-                throw new IllegalArgumentException("点击动作数据无效");
+            String actionsJson = data.getStringExtra(
+                    ClickActionEditActivity.EXTRA_RESULT_ACTIONS_JSON);
+            if (actionsJson != null) {
+                RuleAction[] actions = gson.fromJson(actionsJson, RuleAction[].class);
+                if (actions == null || actions.length == 0) {
+                    throw new IllegalArgumentException("录制动作数据无效");
+                }
+                for (RuleAction action : actions) validateClickAction(action);
+                replaceOrAddActions(pendingActionIndex, Arrays.asList(actions));
+            } else {
+                String json = data.getStringExtra(
+                        ClickActionEditActivity.EXTRA_RESULT_ACTION_JSON);
+                RuleAction action = gson.fromJson(json, RuleAction.class);
+                validateClickAction(action);
+                replaceOrAddAction(pendingActionIndex, action);
             }
-            replaceOrAddAction(pendingActionIndex, action);
         } catch (RuntimeException error) {
             Toast.makeText(this, "无法保存点击动作", Toast.LENGTH_LONG).show();
         } finally {
             pendingActionIndex = -1;
         }
+    }
+
+    private void validateClickAction(RuleAction action) {
+        if (action == null || (action.getType() != ActionType.CLICK
+                && action.getType() != ActionType.RECORDED_TOUCH)) {
+            throw new IllegalArgumentException("点击动作数据无效");
+        }
+    }
+
+    private void replaceOrAddActions(int index, List<RuleAction> actions) {
+        if (index >= 0 && index < rule.getActions().size()) {
+            rule.getActions().remove(index);
+            rule.getActions().addAll(index, actions);
+        } else {
+            rule.getActions().addAll(actions);
+        }
+        refreshActions();
     }
 
     private void replaceOrAddAction(int index, RuleAction action) {

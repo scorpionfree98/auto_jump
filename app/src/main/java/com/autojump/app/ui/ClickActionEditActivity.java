@@ -22,6 +22,10 @@ import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.util.SPUtil;
 import com.google.gson.Gson;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /** Edits a single guarded accessibility click action. */
@@ -29,6 +33,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     public static final String EXTRA_ACTION_JSON = "action_json";
     public static final String EXTRA_RECORDING_DEEPLINK = "recording_deeplink";
     public static final String EXTRA_RESULT_ACTION_JSON = "result_action_json";
+    public static final String EXTRA_RESULT_ACTIONS_JSON = "result_actions_json";
     private static final String STATE_REQUEST_ID = "record_request_id";
     private static final String STATE_DRAFT_ID = "draft_action_id";
     private static final String STATE_RECORDED_ACTION = "recorded_touch_action";
@@ -55,6 +60,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private String requestId;
     private String draftActionId;
     private RuleAction recordedTouchAction;
+    private final List<RuleAction> recordedTouchActions = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,7 +99,10 @@ public class ClickActionEditActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             String savedAction = savedInstanceState.getString(STATE_RECORDED_ACTION);
             if (!TextUtils.isEmpty(savedAction)) {
-                recordedTouchAction = gson.fromJson(savedAction, RuleAction.class);
+                RuleAction[] savedActions = gson.fromJson(savedAction, RuleAction[].class);
+                if (savedActions != null) recordedTouchActions.addAll(Arrays.asList(savedActions));
+                recordedTouchAction = recordedTouchActions.isEmpty()
+                        ? null : recordedTouchActions.get(0);
             }
         }
 
@@ -131,7 +140,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
         outState.putString(STATE_DRAFT_ID, draftActionId);
         outState.putString(STATE_REQUEST_ID, requestId);
         if (recordedTouchAction != null) {
-            outState.putString(STATE_RECORDED_ACTION, gson.toJson(recordedTouchAction));
+            outState.putString(STATE_RECORDED_ACTION, gson.toJson(recordedTouchActions));
         }
     }
 
@@ -201,9 +210,10 @@ public class ClickActionEditActivity extends AppCompatActivity {
         ClickRecordingStore.State state = recordingStore.get();
         if (!requestId.equals(state.getRequestId())) return;
         if (state.getStatus() == ClickRecordingStore.Status.CAPTURED) {
-            if (state.getRecordedTouch() != null) {
-                populate(state.getRecordedTouch());
-                Toast.makeText(this, "已记录真实触摸轨迹", Toast.LENGTH_SHORT).show();
+            if (!state.getRecordedTouches().isEmpty()) {
+                populate(state.getRecordedTouches());
+                Toast.makeText(this, "已记录 " + state.getRecordedTouches().size()
+                        + " 个触摸动作", Toast.LENGTH_SHORT).show();
             } else {
                 populate(state.getRecordedClick());
                 Toast.makeText(this, "已读取旧版点击记录", Toast.LENGTH_SHORT).show();
@@ -236,13 +246,21 @@ public class ClickActionEditActivity extends AppCompatActivity {
     }
 
     private void populate(RecordedTouch touch) {
-        if (touch == null) return;
-        recordedTouchAction = RuleAction.recordedTouch(touch.getTargetPackage(),
-                touch.getDelayBeforeMs(), RuleAction.DEFAULT_TIMEOUT_MS,
-                touch.getDisplayWidth(), touch.getDisplayHeight(), touch.getOrientation(),
-                touch.getTargetAppVersion(), touch.getTrace());
-        setText(targetPackage, touch.getTargetPackage());
-        delay.setText(String.valueOf(touch.getDelayBeforeMs()));
+        populate(touch == null ? Collections.emptyList() : Collections.singletonList(touch));
+    }
+
+    private void populate(List<RecordedTouch> touches) {
+        if (touches == null || touches.isEmpty()) return;
+        recordedTouchActions.clear();
+        for (RecordedTouch touch : touches) {
+            recordedTouchActions.add(RuleAction.recordedTouch(touch.getTargetPackage(),
+                    touch.getDelayBeforeMs(), RuleAction.DEFAULT_TIMEOUT_MS,
+                    touch.getDisplayWidth(), touch.getDisplayHeight(), touch.getOrientation(),
+                    touch.getTargetAppVersion(), touch.getTrace()));
+        }
+        recordedTouchAction = recordedTouchActions.get(0);
+        setText(targetPackage, recordedTouchAction.getTargetPackage());
+        delay.setText(String.valueOf(recordedTouchAction.getDelayBeforeMs()));
         timeout.setText(String.valueOf(RuleAction.DEFAULT_TIMEOUT_MS));
         screenTolerance.setText("10"); offsetX.setText("0"); offsetY.setText("0"); pageSettle.setText("1000");
         viewId.setText("");
@@ -267,6 +285,8 @@ public class ClickActionEditActivity extends AppCompatActivity {
         continueOnFailure.setChecked(action.isContinueOnFailure());
         if (action.getType() == ActionType.RECORDED_TOUCH) {
             recordedTouchAction = action;
+            recordedTouchActions.clear();
+            recordedTouchActions.add(action);
             repeatCount.setText(String.valueOf(action.getRepeatCount()));
             repeatInterval.setText(String.valueOf(action.getRepeatIntervalMs()));
             screenTolerance.setText(String.valueOf(action.getScreenTolerancePercent()));
@@ -282,24 +302,30 @@ public class ClickActionEditActivity extends AppCompatActivity {
             touchTraceStatus.setText("尚未录制真实触摸轨迹");
             return;
         }
-        touchTraceStatus.setText("已录制点击 ✓\n可以调整等待时间和点击次数，然后保存。");
+        int count = recordedTouchActions.isEmpty() ? 1 : recordedTouchActions.size();
+        if (count == 1) {
+            touchTraceStatus.setText("已录制 1 个触摸动作 ✓\n可以调整等待时间和点击次数，然后保存。");
+        } else {
+            touchTraceStatus.setText("已连续录制 " + count
+                    + " 个触摸动作 ✓\n保存后可在指令时间线逐条调整顺序和延迟。");
+        }
+        repeatCount.setEnabled(count == 1);
+        repeatInterval.setEnabled(count == 1);
     }
 
     private void saveAction() {
         try {
             RuleAction action;
             if (recordedTouchAction != null) {
-                action = RuleAction.recordedTouch(
-                        requiredText(targetPackage, "请输入目标应用包名"),
-                        parseLong(delay, "点击延迟"), parseLong(timeout, "点击超时"),
-                        recordedTouchAction.getRecordedDisplayWidth(),
-                        recordedTouchAction.getRecordedDisplayHeight(),
-                        recordedTouchAction.getRecordedOrientation(),
-                        recordedTouchAction.getTargetAppVersion(),
-                        recordedTouchAction.getTouchTrace());
-                action.setRepeatCount(parseInteger(repeatCount, "回放次数"));
-                action.setRepeatIntervalMs(parseLong(repeatInterval, "回放间隔"));
-                applyReplaySettings(action);
+                List<RuleAction> actions = buildRecordedActions();
+                Intent result = new Intent();
+                result.putExtra(EXTRA_RESULT_ACTIONS_JSON, gson.toJson(actions));
+                if (actions.size() == 1) {
+                    result.putExtra(EXTRA_RESULT_ACTION_JSON, gson.toJson(actions.get(0)));
+                }
+                setResult(Activity.RESULT_OK, result);
+                finish();
+                return;
             } else {
                 if (TextUtils.isEmpty(text(targetPackage))) {
                     throw new IllegalArgumentException("请先录制一次点击，再保存");
@@ -321,6 +347,32 @@ public class ClickActionEditActivity extends AppCompatActivity {
         } catch (IllegalArgumentException error) {
             Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private List<RuleAction> buildRecordedActions() {
+        if (recordedTouchActions.isEmpty()) {
+            throw new IllegalArgumentException("请先录制一次点击，再保存");
+        }
+        String packageName = requiredText(targetPackage, "请输入目标应用包名");
+        long actionTimeout = parseLong(timeout, "点击超时");
+        List<RuleAction> actions = new ArrayList<>();
+        for (int index = 0; index < recordedTouchActions.size(); index++) {
+            RuleAction source = recordedTouchActions.get(index);
+            long recordedDelay = index == 0 ? parseLong(delay, "点击延迟")
+                    : source.getDelayBeforeMs();
+            RuleAction action = RuleAction.recordedTouch(packageName, recordedDelay,
+                    actionTimeout, source.getRecordedDisplayWidth(),
+                    source.getRecordedDisplayHeight(), source.getRecordedOrientation(),
+                    source.getTargetAppVersion(), source.getTouchTrace());
+            if (recordedTouchActions.size() == 1) {
+                action.setRepeatCount(parseInteger(repeatCount, "回放次数"));
+                action.setRepeatIntervalMs(parseLong(repeatInterval, "回放间隔"));
+            }
+            applyReplaySettings(action);
+            action.setContinueOnFailure(continueOnFailure.isChecked());
+            actions.add(action);
+        }
+        return actions;
     }
 
     private void applyReplaySettings(RuleAction action) {

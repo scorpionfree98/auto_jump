@@ -32,7 +32,8 @@ final class RecordingOverlayController {
     }
 
     interface ConfirmationListener {
-        void onConfirm(String requestId);
+        void onContinue(String requestId);
+        void onFinish(String requestId);
         void onRetry(String requestId);
         void onCancel(String requestId);
     }
@@ -195,30 +196,35 @@ final class RecordingOverlayController {
         root.setBackground(background);
 
         TextView message = new TextView(service);
-        message.setText("刚才的操作成功了吗？");
+        message.setText("刚才的操作成功了吗？可继续录制下一个动作。");
         message.setTextColor(Color.rgb(35, 35, 35));
         message.setTextSize(14);
         root.addView(message);
 
         LinearLayout actions = new LinearLayout(service);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         actionParams.topMargin = dp(6);
         root.addView(actions, actionParams);
 
-        Button confirm = new Button(service);
-        confirm.setText("成功，保存");
-        actions.addView(confirm);
+        Button next = new Button(service);
+        next.setText("继续录制");
+        actions.addView(next);
+        Button finish = new Button(service);
+        finish.setText("完成");
+        actions.addView(finish);
         Button retry = new Button(service);
-        retry.setText("重新录制");
+        retry.setText("重录本次");
         actions.addView(retry);
         Button cancel = new Button(service);
         cancel.setText("取消");
         actions.addView(cancel);
 
-        confirm.setOnClickListener(view -> finishConfirmation(actionTaken,
-                () -> listener.onConfirm(confirmationRequestId)));
+        next.setOnClickListener(view -> finishConfirmation(actionTaken,
+                () -> listener.onContinue(confirmationRequestId)));
+        finish.setOnClickListener(view -> finishConfirmation(actionTaken,
+                () -> listener.onFinish(confirmationRequestId)));
         retry.setOnClickListener(view -> finishConfirmation(actionTaken,
                 () -> listener.onRetry(confirmationRequestId)));
         cancel.setOnClickListener(view -> finishConfirmation(actionTaken,
