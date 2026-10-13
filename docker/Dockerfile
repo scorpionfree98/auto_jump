@@ -26,7 +26,7 @@ RUN mkdir -p $ANDROID_SDK_ROOT/cmdline-tools && \
 
 # 接受许可并安装编译所需 SDK 组件
 RUN yes | sdkmanager --licenses >/dev/null 2>&1 || true && \
-    sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+    sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;34.0.0" >/dev/null
 
 # 安装 Gradle 8.2（腾讯云镜像，与 AGP 8.1 匹配）
 RUN curl -fsSL -o /tmp/gradle.zip https://mirrors.cloud.tencent.com/gradle/gradle-8.2-bin.zip && \

@@ -145,10 +145,12 @@ public class PermissionGuideActivity extends AppCompatActivity {
     }
 
     private void updateStatus() {
-        accessibilityStatus.setText(AccessibilityServiceState.isEnabled(this)
-                ? "自动点击服务：已开启 ✓" : "自动点击服务：未开启");
+        boolean enabled = AccessibilityServiceState.isEnabled(this);
+        boolean connected = enabled && com.autojump.app.automation.AutoJumpAccessibilityService.connectedContext() != null;
+        accessibilityStatus.setText(connected ? "自动点击服务：已连接 ✓"
+                : enabled ? "自动点击服务：已开启，等待连接" : "自动点击服务：未开启");
         accessibilityStatus.setTextColor(androidx.core.content.ContextCompat.getColor(this,
-                AccessibilityServiceState.isEnabled(this) ? R.color.success : R.color.warning));
+                connected ? R.color.success : R.color.warning));
         updateShizukuStatus();
 
         boolean hasLocation = hasLocationPermission();
@@ -166,8 +168,9 @@ public class PermissionGuideActivity extends AppCompatActivity {
 
     private void updateShizukuStatus() {
         if (shizukuRecoveryRunning) return;
-        if (AccessibilityServiceState.isEnabled(this)) {
-            shizukuStatus.setText("自动点击服务已开启，无需恢复");
+        if (AccessibilityServiceState.isEnabled(this)
+                && com.autojump.app.automation.AutoJumpAccessibilityService.connectedContext() != null) {
+            shizukuStatus.setText("自动点击服务已连接，无需恢复");
             recoverWithShizuku.setEnabled(false);
             return;
         }
@@ -214,11 +217,15 @@ public class PermissionGuideActivity extends AppCompatActivity {
         shizukuRecoveryRunning = true;
         recoverWithShizuku.setEnabled(false);
         shizukuStatus.setText("正在通过 Shizuku 恢复并回读系统状态…");
+        java.lang.ref.WeakReference<PermissionGuideActivity> owner =
+                new java.lang.ref.WeakReference<>(this);
         ShizukuAccessibilityRecovery.recover(this, (success, message) -> {
-            shizukuRecoveryRunning = false;
-            updateStatus();
-            shizukuStatus.setText(message);
-            if (!success) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            PermissionGuideActivity page = owner.get();
+            if (page == null || page.isFinishing() || page.isDestroyed()) return;
+            page.shizukuRecoveryRunning = false;
+            page.updateStatus();
+            page.shizukuStatus.setText(message);
+            if (!success) Toast.makeText(page, message, Toast.LENGTH_LONG).show();
         });
     }
 

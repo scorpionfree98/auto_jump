@@ -33,6 +33,8 @@ shift 3
 cd "$remote_dir"
 mkdir -p "$android_home"
 chmod 700 "$android_home"
+sdk_platforms=/home/kmkuang/codex_build/auto_jump_sdk/platforms
+mkdir -p "$sdk_platforms"
 
 # 服务器维护时 Docker 套接字可能短暂重置。只重试 Docker 自身的 125 错误；
 # Gradle 编译或测试失败保持原始状态，不做可能掩盖问题的重试。
@@ -43,6 +45,7 @@ for attempt in 1 2 3; do
         -v "$remote_dir":/workspace \
         -v autojump-gradle-cache:/root/.gradle \
         -v "$android_home":/root/.android \
+        -v "$sdk_platforms":/opt/android-sdk/platforms \
         -w /workspace \
         "$image_name" \
         ./gradlew "$@" --no-daemon

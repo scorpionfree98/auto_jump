@@ -574,7 +574,13 @@ public class RuleEditActivity extends AppCompatActivity {
             else if (rule.getId().equals(settings.defaultId())) settings.setDefaultId("");
             com.autojump.app.util.ShortcutUtil.refreshDynamicShortcut(this);
             Toast.makeText(this, "指令已保存", Toast.LENGTH_SHORT).show();
-            if (runNow) new com.autojump.app.automation.AutomationOrchestrator(this).enqueue(this, rule);
+            if (runNow) {
+                Context app = getApplicationContext();
+                com.autojump.app.automation.AccessibilityAwareRuleRunner.enqueue(app, rule,
+                        (queued, message) -> {
+                            if (!queued) Toast.makeText(app, message, Toast.LENGTH_LONG).show();
+                        });
+            }
             finish();
         } catch (IllegalArgumentException error) {
             showError(error);

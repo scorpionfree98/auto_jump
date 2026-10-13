@@ -150,16 +150,20 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
 
     @Override
     public void onRun(Rule rule) {
+        java.lang.ref.WeakReference<RuleListActivity> owner = new java.lang.ref.WeakReference<>(this);
         new MaterialAlertDialogBuilder(this)
                 .setTitle("运行「" + rule.getName() + "」")
                 .setMessage("加入串行队列，轮到执行时检查条件。目标页面可能实际提交打卡。")
                 .setPositiveButton("运行", (d, w) ->
                         AccessibilityAwareRuleRunner.enqueue(this, rule, (queued, message) -> {
+                            RuleListActivity page = owner.get();
+                            if (page == null || page.isFinishing() || page.isDestroyed()) return;
                             if (!queued) {
-                                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-                                startActivity(new Intent(this, PermissionGuideActivity.class));
+                                Toast.makeText(page, message, Toast.LENGTH_LONG).show();
+                                if (!message.contains("已合并")) page.startActivity(
+                                        new Intent(page, PermissionGuideActivity.class));
                             } else {
-                                updateHomeState();
+                                page.updateHomeState();
                             }
                         }))
                 .setNegativeButton("取消", null).show();

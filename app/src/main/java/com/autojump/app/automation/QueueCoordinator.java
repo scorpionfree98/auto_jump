@@ -19,6 +19,12 @@ public final class QueueCoordinator {
     private static Runnable tick;
 
     public static ExecutionSession enqueue(Context context, Rule rule) {
+        return enqueue(context, rule, true);
+    }
+    static ExecutionSession enqueueDeferred(Context context, Rule rule) {
+        return enqueue(context, rule, false);
+    }
+    private static ExecutionSession enqueue(Context context, Rule rule, boolean dispatch) {
         synchronized (LOCK) {
             PendingExecutionStore store = new PendingExecutionStore(context);
             long now = System.currentTimeMillis();
@@ -40,7 +46,7 @@ public final class QueueCoordinator {
             session.setStatus(ExecutionSession.Status.QUEUED);
             store.upsert(session);
             new ExecutionLogStore(context).append(session, "QUEUED", "指令已排队");
-            pump(context);
+            if (dispatch) pump(context);
             return session;
         }
     }
@@ -139,6 +145,7 @@ public final class QueueCoordinator {
         }
     }
     public static void stopAll(Context context) {
+        AccessibilityAwareRuleRunner.cancelWaiting();
         synchronized (LOCK) {
             for (ExecutionSession s : QueuePolicy.ordered(new PendingExecutionStore(context).getAll())) {
                 if (s.getStatus() == ExecutionSession.Status.RUNNING) {

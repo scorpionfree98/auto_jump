@@ -40,13 +40,17 @@ public class MainActivity extends AppCompatActivity {
         // Post beyond the launcher transaction. Xiaomi may suspend this process as soon as
         // the target app becomes foreground, so recovery and queue persistence must finish
         // before the deeplink is dispatched.
+        android.content.Context app = getApplicationContext();
+        finish();
         new Handler(Looper.getMainLooper()).post(() ->
-                AccessibilityAwareRuleRunner.enqueue(this, rule, (queued, message) -> {
+                AccessibilityAwareRuleRunner.enqueue(app, rule, (queued, message) -> {
                     if (!queued) {
-                        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-                        startActivity(new Intent(this, PermissionGuideActivity.class));
+                        Toast.makeText(app, message, Toast.LENGTH_LONG).show();
+                        // A merged trigger is already handled by the original request.
+                        if (!message.contains("已合并")) app.startActivity(
+                                new Intent(app, PermissionGuideActivity.class)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                     }
-                    finish();
                 }));
     }
     private void openManagement() {

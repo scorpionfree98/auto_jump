@@ -12,7 +12,8 @@ import com.autojump.app.automation.AutoJumpAccessibilityService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
+import java.util.List;
 import rikka.shizuku.Shizuku;
 
 /** Bounded Shizuku recovery for this app's own accessibility service. */
@@ -21,6 +22,8 @@ public final class ShizukuAccessibilityRecovery {
     private static final long BIND_TIMEOUT_MS = 25_000L;
     private static final int CONNECTION_CHECK_ATTEMPTS = 6;
     private static final long CONNECTION_CHECK_INTERVAL_MS = 300L;
+    private static final List<Callback> waitingCallbacks = new ArrayList<>();
+    private static boolean recovering;
 
     public enum Availability { NOT_RUNNING, PERMISSION_REQUIRED, READY }
 
@@ -52,13 +55,28 @@ public final class ShizukuAccessibilityRecovery {
 
     public static void recover(Context context, Callback callback) {
         Context app = context.getApplicationContext();
+        new Handler(Looper.getMainLooper()).post(() -> {
+            waitingCallbacks.add(callback);
+            if (recovering) return;
+            recovering = true;
+            recoverInternal(app, (success, message) -> {
+                List<Callback> batch = new ArrayList<>(waitingCallbacks);
+                waitingCallbacks.clear();
+                recovering = false;
+                for (Callback item : batch) item.onResult(success, message);
+            });
+        });
+    }
+
+    private static void recoverInternal(Context context, Callback callback) {
+        Context app = context.getApplicationContext();
         if (availability() != Availability.READY) {
             callback.onResult(false, "Shizuku 未运行或尚未授权");
             return;
         }
         Handler main = new Handler(Looper.getMainLooper());
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        AtomicBoolean finished = new AtomicBoolean(false);
+        RecoveryAttempt attempt = new RecoveryAttempt();
         Shizuku.UserServiceArgs args = new Shizuku.UserServiceArgs(
                 new ComponentName(app, ShizukuAccessibilityBridgeService.class))
                 .processNameSuffix("accessibility_recovery")
@@ -66,7 +84,7 @@ public final class ShizukuAccessibilityRecovery {
                 .version(1);
         ServiceConnection connection = new ServiceConnection() {
             @Override public void onServiceConnected(ComponentName name, IBinder binder) {
-                if (finished.get() || executor.isShutdown()) return;
+                if (executor.isShutdown() || !attempt.claimConnection()) return;
                 try {
                     executor.execute(() -> {
                         String message;
@@ -87,7 +105,7 @@ public final class ShizukuAccessibilityRecovery {
                         }
                         boolean finalSettingConfirmed = settingConfirmed;
                         String finalMessage = message;
-                        main.post(() -> finish(app, args, this, executor, finished,
+                        main.post(() -> finish(app, args, this, executor, attempt,
                                 finalSettingConfirmed, finalMessage, callback));
                     });
                 } catch (RejectedExecutionException ignored) {
@@ -97,14 +115,12 @@ public final class ShizukuAccessibilityRecovery {
             }
 
             @Override public void onServiceDisconnected(ComponentName name) {
-                if (finished.compareAndSet(false, true)) {
-                    executor.shutdownNow();
-                    callback.onResult(false, "Shizuku 服务已断开，未确认恢复结果");
-                }
+                main.post(() -> finish(app, args, this, executor, attempt,
+                        false, "Shizuku 服务已断开，未确认恢复结果", callback));
             }
         };
         main.postDelayed(() -> {
-            if (finished.compareAndSet(false, true)) {
+            if (attempt.finish()) {
                 safeUnbind(args, connection);
                 executor.shutdownNow();
                 callback.onResult(false, "Shizuku 恢复超时，未确认成功");
@@ -113,7 +129,8 @@ public final class ShizukuAccessibilityRecovery {
         try {
             Shizuku.bindUserService(args, connection);
         } catch (RuntimeException error) {
-            if (finished.compareAndSet(false, true)) {
+            if (attempt.finish()) {
+                safeUnbind(args, connection);
                 executor.shutdownNow();
                 callback.onResult(false, error.getMessage() == null
                         ? "无法连接 Shizuku 用户服务" : error.getMessage());
@@ -123,9 +140,9 @@ public final class ShizukuAccessibilityRecovery {
 
     private static void finish(Context context, Shizuku.UserServiceArgs args,
                                ServiceConnection connection, ExecutorService executor,
-                               AtomicBoolean finished, boolean settingConfirmed, String message,
+                               RecoveryAttempt attempt, boolean settingConfirmed, String message,
                                Callback callback) {
-        if (!finished.compareAndSet(false, true)) return;
+        if (!attempt.finish()) return;
         safeUnbind(args, connection);
         executor.shutdownNow();
         if (!settingConfirmed) {
