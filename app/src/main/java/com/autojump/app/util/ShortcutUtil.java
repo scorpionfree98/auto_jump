@@ -28,7 +28,9 @@ public final class ShortcutUtil {
         SharedPreferences prefs = context.getSharedPreferences("shortcut_publication", Context.MODE_PRIVATE);
         List<Rule> rules = new RuleRepository(context).getRules();
         rules.sort(Comparator.comparingInt(Rule::getShortcutRank).thenComparing(Rule::getId));
-        String signature = "static-v2:" + new com.google.gson.Gson().toJson(rules);
+        // Bump when shortcut rendering or static shortcut allocation changes so an
+        // app update republishes existing rules even if their stored data is unchanged.
+        String signature = "static-v3-emoji-icons:" + new com.google.gson.Gson().toJson(rules);
         if (signature.equals(prefs.getString("signature", ""))) return;
         int capacity = Math.max(0, ShortcutManagerCompat.getMaxShortcutCountPerActivity(context) - 2);
         List<ShortcutInfoCompat> desired = new ArrayList<>();
