@@ -11,6 +11,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import cn.local.jiojio.R;
@@ -37,6 +38,7 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private static final String STATE_REQUEST_ID = "record_request_id";
     private static final String STATE_DRAFT_ID = "draft_action_id";
     private static final String STATE_RECORDED_ACTION = "recorded_touch_action";
+    private static final String STATE_INITIAL_DRAFT = "initial_draft";
 
     private EditText targetPackage;
     private EditText delay;
@@ -61,12 +63,16 @@ public class ClickActionEditActivity extends AppCompatActivity {
     private String draftActionId;
     private RuleAction recordedTouchAction;
     private final List<RuleAction> recordedTouchActions = new ArrayList<>();
+    private String initialDraftSignature;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_click_action_edit);
-        findViewById(R.id.btn_page_back).setOnClickListener(v -> finish());
+        findViewById(R.id.btn_page_back).setOnClickListener(v -> requestExit());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() { requestExit(); }
+        });
         setTitle("编辑点击动作");
 
         targetPackage = findViewById(R.id.et_target_package);
@@ -132,6 +138,8 @@ public class ClickActionEditActivity extends AppCompatActivity {
         if (recordedTouchAction == null && !TextUtils.isEmpty(text(targetPackage))) {
             findViewById(R.id.advanced_click).setVisibility(android.view.View.VISIBLE);
         }
+        initialDraftSignature = savedInstanceState == null
+                ? draftSignature() : savedInstanceState.getString(STATE_INITIAL_DRAFT, draftSignature());
     }
 
     @Override
@@ -142,6 +150,37 @@ public class ClickActionEditActivity extends AppCompatActivity {
         if (recordedTouchAction != null) {
             outState.putString(STATE_RECORDED_ACTION, gson.toJson(recordedTouchActions));
         }
+        outState.putString(STATE_INITIAL_DRAFT, initialDraftSignature);
+    }
+
+    private void requestExit() {
+        if (initialDraftSignature.equals(draftSignature())) {
+            discardAndFinish();
+            return;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("保存修改？")
+                .setMessage("当前点击动作有尚未保存的修改。")
+                .setPositiveButton("保存", (dialog, which) -> saveAction())
+                .setNegativeButton("不保存", (dialog, which) -> discardAndFinish())
+                .setNeutralButton("继续编辑", null)
+                .show();
+    }
+
+    private void discardAndFinish() {
+        if (requestId != null) clearRecordingRequest();
+        finish();
+    }
+
+    private String draftSignature() {
+        StringBuilder value = new StringBuilder();
+        EditText[] fields = {targetPackage, delay, timeout, retry, viewId, targetText,
+                contentDescription, relativeX, relativeY, recordingDeeplink, repeatCount,
+                repeatInterval, screenTolerance, offsetX, offsetY, pageSettle};
+        for (EditText field : fields) value.append(text(field)).append('\n');
+        value.append(continueOnFailure.isChecked()).append('\n');
+        value.append(gson.toJson(recordedTouchActions));
+        return value.toString();
     }
 
     @Override

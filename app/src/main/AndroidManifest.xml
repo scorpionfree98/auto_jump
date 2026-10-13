@@ -25,6 +25,13 @@
     </queries>
     <application android:name=".ToolkitApplication" android:label="工具合集" android:theme="@style/AppTheme" android:icon="@drawable/ic_app" android:allowBackup="false" android:usesCleartextTraffic="false" android:supportsRtl="true">
         <meta-data android:name="com.amap.api.v2.apikey" android:value="${AMAP_API_KEY}"/>
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:noHistory="true" android:taskAffinity="${applicationId}.automation" android:excludeFromRecents="true" android:theme="@style/Theme.AutoJumpTransparent">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>

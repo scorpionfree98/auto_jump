@@ -19,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
@@ -43,6 +44,7 @@ public class RuleEditActivity extends AppCompatActivity {
     private static final String STATE_RULE = "draft_rule";
     private static final String STATE_IS_EDIT = "is_edit";
     private static final String STATE_PENDING_ACTION = "pending_action";
+    private static final String STATE_INITIAL_DRAFT = "initial_draft";
 
     private EditText ruleName;
     private EditText priority;
@@ -56,6 +58,7 @@ public class RuleEditActivity extends AppCompatActivity {
     private Rule rule;
     private boolean isEdit;
     private int pendingActionIndex = -1;
+    private String initialDraftSignature;
     private final Gson gson = new Gson();
     private final RecordingDeeplinkResolver recordingDeeplinkResolver =
             new RecordingDeeplinkResolver();
@@ -64,7 +67,10 @@ public class RuleEditActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_rule_edit);
-        findViewById(R.id.btn_page_back).setOnClickListener(v -> finish());
+        findViewById(R.id.btn_page_back).setOnClickListener(v -> requestExit());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() { requestExit(); }
+        });
         setTitle("编辑指令");
 
         ruleName = findViewById(R.id.et_rule_name);
@@ -89,6 +95,8 @@ public class RuleEditActivity extends AppCompatActivity {
         }
         if (rule == null) rule = new Rule(UUID.randomUUID().toString(), "");
         showRule();
+        initialDraftSignature = savedInstanceState == null
+                ? draftSignature() : savedInstanceState.getString(STATE_INITIAL_DRAFT, draftSignature());
         ((TextView) findViewById(R.id.tv_editor_title)).setText(isEdit ? "编辑指令" : "创建你的指令");
         if (!rule.getConditions().isEmpty()) {
             ((Button) findViewById(R.id.btn_advanced_rule)).setText(
@@ -126,6 +134,31 @@ public class RuleEditActivity extends AppCompatActivity {
         outState.putSerializable(STATE_RULE, rule);
         outState.putBoolean(STATE_IS_EDIT, isEdit);
         outState.putInt(STATE_PENDING_ACTION, pendingActionIndex);
+        outState.putString(STATE_INITIAL_DRAFT, initialDraftSignature);
+    }
+
+    private void requestExit() {
+        if (initialDraftSignature.equals(draftSignature())) {
+            finish();
+            return;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("保存修改？")
+                .setMessage("当前指令有尚未保存的修改。")
+                .setPositiveButton("保存", (dialog, which) -> saveRule())
+                .setNegativeButton("不保存", (dialog, which) -> finish())
+                .setNeutralButton("继续编辑", null)
+                .show();
+    }
+
+    private String draftSignature() {
+        return gson.toJson(rule) + '\n'
+                + ruleName.getText() + '\n'
+                + priority.getText() + '\n'
+                + requestUnlock.isChecked() + '\n'
+                + menuShortcut.isChecked() + '\n'
+                + defaultInstruction.isChecked() + '\n'
+                + shortcutRank.getText();
     }
 
     private void loadRule() {
