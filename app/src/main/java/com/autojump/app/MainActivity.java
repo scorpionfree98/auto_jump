@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.autojump.app.bean.Rule;
 import com.autojump.app.data.InstructionSettings;
 import com.autojump.app.data.RuleRepository;
-import com.autojump.app.automation.AutomationOrchestrator;
+import com.autojump.app.automation.AccessibilityAwareRuleRunner;
 import com.autojump.app.util.ShortcutUtil;
 
 /** Transparent launcher: ID lookup never falls back to an unrelated instruction. */
@@ -30,18 +30,24 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, explicit ? "指令不存在或已停用" : "请先选择有效的默认指令", Toast.LENGTH_LONG).show();
             if (!explicit) openManagement();
         } else {
-            // Do not open another app while the launcher's ActivityThread transaction is
-            // still running. Some Xiaomi builds suspend that transaction as soon as the
-            // target app becomes foreground, which also postpones accessibility callbacks
-            // and recorded-touch timers until this app is opened again.
-            Rule selectedRule = selected;
-            android.content.Context application = getApplicationContext();
-            finish();
-            new Handler(Looper.getMainLooper()).post(() ->
-                    new AutomationOrchestrator(application).enqueue(application, selectedRule));
+            runWhenAccessibilityReady(selected);
             return;
         }
         finish();
+    }
+
+    private void runWhenAccessibilityReady(Rule rule) {
+        // Post beyond the launcher transaction. Xiaomi may suspend this process as soon as
+        // the target app becomes foreground, so recovery and queue persistence must finish
+        // before the deeplink is dispatched.
+        new Handler(Looper.getMainLooper()).post(() ->
+                AccessibilityAwareRuleRunner.enqueue(this, rule, (queued, message) -> {
+                    if (!queued) {
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                        startActivity(new Intent(this, PermissionGuideActivity.class));
+                    }
+                    finish();
+                }));
     }
     private void openManagement() {
         // Keep management outside the transient launcher task. Otherwise Android may

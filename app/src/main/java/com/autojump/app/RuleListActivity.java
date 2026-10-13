@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.autojump.app.adapter.RuleAdapter;
+import com.autojump.app.automation.AccessibilityAwareRuleRunner;
 import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.bean.Rule;
 import com.autojump.app.data.RuleRepository;
@@ -153,7 +154,14 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                 .setTitle("运行「" + rule.getName() + "」")
                 .setMessage("加入串行队列，轮到执行时检查条件。目标页面可能实际提交打卡。")
                 .setPositiveButton("运行", (d, w) ->
-                        new com.autojump.app.automation.AutomationOrchestrator(this).enqueue(this, rule))
+                        AccessibilityAwareRuleRunner.enqueue(this, rule, (queued, message) -> {
+                            if (!queued) {
+                                Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                                startActivity(new Intent(this, PermissionGuideActivity.class));
+                            } else {
+                                updateHomeState();
+                            }
+                        }))
                 .setNegativeButton("取消", null).show();
     }
 

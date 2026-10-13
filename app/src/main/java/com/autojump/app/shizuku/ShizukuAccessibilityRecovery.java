@@ -11,10 +11,11 @@ import com.autojump.app.automation.AccessibilityServiceState;
 import com.autojump.app.automation.AutoJumpAccessibilityService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import rikka.shizuku.Shizuku;
 
-/** Bounded, user-triggered Shizuku recovery for this app's own accessibility service. */
+/** Bounded Shizuku recovery for this app's own accessibility service. */
 public final class ShizukuAccessibilityRecovery {
     public static final int REQUEST_PERMISSION = 4107;
     private static final long BIND_TIMEOUT_MS = 25_000L;
@@ -65,28 +66,34 @@ public final class ShizukuAccessibilityRecovery {
                 .version(1);
         ServiceConnection connection = new ServiceConnection() {
             @Override public void onServiceConnected(ComponentName name, IBinder binder) {
-                executor.execute(() -> {
-                    String message;
-                    boolean settingConfirmed = false;
-                    try {
-                        String component = new ComponentName(app,
-                                AutoJumpAccessibilityService.class).flattenToString();
-                        String result = IShizukuAccessibilityBridge.Stub.asInterface(binder)
-                                .restoreAccessibility(component);
-                        settingConfirmed = "RESTORED".equals(result)
-                                || "ALREADY_ENABLED".equals(result);
-                        message = "RESTORED".equals(result)
-                                ? "系统设置已恢复，正在确认服务状态"
-                                : "系统设置中已启用，正在确认服务状态";
-                    } catch (Exception error) {
-                        message = error.getMessage() == null
-                                ? "Shizuku 恢复失败" : error.getMessage();
-                    }
-                    boolean finalSettingConfirmed = settingConfirmed;
-                    String finalMessage = message;
-                    main.post(() -> finish(app, args, this, executor, finished,
-                            finalSettingConfirmed, finalMessage, callback));
-                });
+                if (finished.get() || executor.isShutdown()) return;
+                try {
+                    executor.execute(() -> {
+                        String message;
+                        boolean settingConfirmed = false;
+                        try {
+                            String component = new ComponentName(app,
+                                    AutoJumpAccessibilityService.class).flattenToString();
+                            String result = IShizukuAccessibilityBridge.Stub.asInterface(binder)
+                                    .restoreAccessibility(component);
+                            settingConfirmed = "RESTORED".equals(result)
+                                    || "ALREADY_ENABLED".equals(result);
+                            message = "RESTORED".equals(result)
+                                    ? "系统设置已恢复，正在确认服务状态"
+                                    : "系统设置中已启用，正在确认服务状态";
+                        } catch (Exception error) {
+                            message = error.getMessage() == null
+                                    ? "Shizuku 恢复失败" : error.getMessage();
+                        }
+                        boolean finalSettingConfirmed = settingConfirmed;
+                        String finalMessage = message;
+                        main.post(() -> finish(app, args, this, executor, finished,
+                                finalSettingConfirmed, finalMessage, callback));
+                    });
+                } catch (RejectedExecutionException ignored) {
+                    // Shizuku can deliver a duplicate connection callback while a
+                    // non-daemon user service is being torn down after success.
+                }
             }
 
             @Override public void onServiceDisconnected(ComponentName name) {
