@@ -41,9 +41,12 @@ public class MainActivity extends AppCompatActivity {
         // the target app becomes foreground, so recovery and queue persistence must finish
         // before the deeplink is dispatched.
         android.content.Context app = getApplicationContext();
-        finish();
+        // Keep the launcher foreground while permissions reconnect. Finishing before
+        // the wait completes lets HyperOS suspend the recovery timer on the home screen.
+        java.lang.ref.WeakReference<MainActivity> owner = new java.lang.ref.WeakReference<>(this);
         new Handler(Looper.getMainLooper()).post(() ->
                 AccessibilityAwareRuleRunner.enqueue(app, rule, (queued, message) -> {
+                    MainActivity page = owner.get();
                     if (!queued) {
                         Toast.makeText(app, message, Toast.LENGTH_LONG).show();
                         // A merged trigger is already handled by the original request.
@@ -51,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
                                 new Intent(app, PermissionGuideActivity.class)
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                     }
+                    if (page != null && !page.isDestroyed()) page.finish();
                 }));
     }
     private void openManagement() {

@@ -26,6 +26,10 @@ public final class AccessibilityAwareRuleRunner {
         Gson gson = new Gson();
         Rule snapshot = gson.fromJson(gson.toJson(rule), Rule.class);
         new Handler(Looper.getMainLooper()).post(() -> {
+            android.util.Log.i("ToolkitAccessibilityGate", "request needsAccessibility="
+                    + requiresAccessibility(snapshot) + " enabled="
+                    + AccessibilityServiceState.isEnabled(app) + " connected="
+                    + (AutoJumpAccessibilityService.connectedContext() != null));
             if (gate == null) gate = new AccessibilityExecutionGate(
                     new AccessibilityExecutionGate.Environment() {
                         @Override public boolean connected() {
@@ -40,7 +44,11 @@ public final class AccessibilityAwareRuleRunner {
                             new Handler(Looper.getMainLooper()).postDelayed(task, delayMs);
                         }
                         @Override public void restore(AccessibilityExecutionGate.Result result) {
-                            ShizukuAccessibilityRecovery.recover(app, result::complete);
+                            android.util.Log.i("ToolkitAccessibilityGate", "starting Shizuku recovery");
+                            ShizukuAccessibilityRecovery.recover(app, (success, message) -> {
+                                android.util.Log.i("ToolkitAccessibilityGate", "recovery result=" + success);
+                                result.complete(success, message);
+                            });
                         }
                         @Override public boolean enqueue(Rule selected) {
                             // Persist every recovered waiter before any external launch can
