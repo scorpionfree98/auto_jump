@@ -18,6 +18,10 @@ public final class NetworkProbe {
     }
     private volatile boolean cancelled;
     private volatile HttpURLConnection connection;
+    interface ConnectionFactory { HttpURLConnection open(URL url) throws IOException; }
+    private final ConnectionFactory connections;
+    public NetworkProbe() { this(url -> (HttpURLConnection) url.openConnection()); }
+    NetworkProbe(ConnectionFactory connections) { this.connections = connections; }
     public void cancel() { cancelled=true;HttpURLConnection c=connection;if(c!=null)c.disconnect(); }
     public boolean isCancelled() { return cancelled; }
     private void check() throws InterruptedIOException {
@@ -34,7 +38,7 @@ public final class NetworkProbe {
         return u;
     }
     private HttpURLConnection open(URL url) throws IOException {
-        check();HttpURLConnection c=(HttpURLConnection)url.openConnection();connection=c;
+        check();HttpURLConnection c=connections.open(url);connection=c;
         c.setConnectTimeout(8000);c.setReadTimeout(8000);c.setUseCaches(false);c.setInstanceFollowRedirects(false);
         c.setRequestProperty("Cache-Control","no-cache, no-store");c.setRequestProperty("Accept-Encoding","identity");
         check();return c;

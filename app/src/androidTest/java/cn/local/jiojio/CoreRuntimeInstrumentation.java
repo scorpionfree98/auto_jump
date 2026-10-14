@@ -13,24 +13,67 @@ import java.util.Map;
 
 /** Exercises the real app service and stores on an Android device/emulator without UI automation. */
 public final class CoreRuntimeInstrumentation extends Instrumentation {
+    private static int checksPassed;
     @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
 
     @Override public void onStart() {
+        checksPassed = 0;
         Bundle result = new Bundle();
         Context context = getTargetContext();
+        if (!"cn.local.toolkit.runtime".equals(context.getPackageName())
+                || !(android.os.Build.HARDWARE.contains("ranchu")
+                || android.os.Build.HARDWARE.contains("goldfish"))) {
+            result.putString("stream", "FAIL: toolbox regression requires an isolated emulator target\n");
+            finish(Activity.RESULT_CANCELED, result);
+            return;
+        }
         long now = System.currentTimeMillis();
         double offset = (now % 100000) / 1000000.0;
-        Position favorite = new Position("Docker VM favorite", -80.0 - offset, 170.0 + offset, now);
+        Position favorite = new Position("Docker VM favorite", -80.0 - offset, 170.0 + offset, now, "Regression place");
         Position target = new Position("Docker VM mock", 70.0 + offset, -170.0 + offset, now);
         PositionStore store = new PositionStore(context);
+        android.content.SharedPreferences positions = context.getSharedPreferences("positions", Context.MODE_PRIVATE);
+        String priorFavorites = positions.getString("favorites", "[]");
+        String priorHistory = positions.getString("history", "[]");
+        android.content.SharedPreferences rulesPrefs = context.getSharedPreferences("jump_config_sp", Context.MODE_PRIVATE);
+        String priorRules = rulesPrefs.getString("rule_list", null);
         boolean serviceStarted = false;
         int resultCode = Activity.RESULT_OK;
         try {
             check(MockLocationService.authorized(context), "Select this app as mock-location app before running test");
 
+            com.autojump.app.data.RuleRepository repository = new com.autojump.app.data.RuleRepository(context);
+            com.autojump.app.bean.Rule rule = new com.autojump.app.bean.Rule("tool-regression", "Tool regression");
+            rule.getActions().add(com.autojump.app.domain.RuleAction.deeplink("example://regression"));
+            rule.getConditions().add(com.autojump.app.domain.RuleCondition.charging(false));
+            String exported = repository.exportRules(java.util.Collections.singletonList(rule));
+            List<com.autojump.app.bean.Rule> imported = repository.importRules(exported);
+            check(exported.equals(repository.exportRules(imported)), "Rule export/import round trip changed data");
+            repository.saveRules(imported);
+            check(exported.equals(new com.autojump.app.data.RuleRepository(context).exportRules(
+                    new com.autojump.app.data.RuleRepository(context).getRules())), "Saved imported rules did not reload");
+            rejects(repository, "{\"schemaVersion\":99,\"rules\":[]}");
+            rejects(repository, "not-json");
+            check(exported.equals(repository.exportRules(repository.getRules())), "Invalid import mutated saved rules");
+
+            com.autojump.app.bean.Rule extra = new com.autojump.app.bean.Rule("tool-regression-extra", "Extra regression");
+            extra.getActions().add(com.autojump.app.domain.RuleAction.deeplink("example://extra"));
+            List<com.autojump.app.bean.Rule> appended = repository.getRules();
+            appended.addAll(repository.importRules(repository.exportRules(java.util.Collections.singletonList(extra))));
+            repository.saveRules(appended);
+            check(new com.autojump.app.data.RuleRepository(context).getRules().size() == 2, "Appended import did not reload");
+            repository.saveRules(repository.importRules(repository.exportRules(java.util.Collections.singletonList(extra))));
+            check(repository.getRules().size() == 1 && "tool-regression-extra".equals(repository.getRules().get(0).getId()),
+                    "Replacement import retained old rules");
+            repository.saveRules(repository.importRules(exported));
+            check(exported.equals(new com.autojump.app.data.RuleRepository(context).exportRules(
+                    new com.autojump.app.data.RuleRepository(context).getRules())), "Backup restore did not reload");
+
             store.add("favorites", favorite);
             List<Position> saved = new PositionStore(context).list("favorites");
             check(contains(saved, favorite.key()), "Favorite did not persist");
+            check(saved.stream().anyMatch(p -> p.key().equals(favorite.key()) && p.name.equals(favorite.name)
+                    && p.locationName.equals("Regression place")), "Favorite and location names did not persist separately");
             store.add("favorites", new Position("Duplicate coordinate", favorite.latitude, favorite.longitude, favorite.timestamp + 1));
             check(count(new PositionStore(context).list("favorites"), favorite.key()) == 1, "Favorite coordinate was not deduplicated");
 
@@ -66,8 +109,8 @@ public final class CoreRuntimeInstrumentation extends Instrumentation {
             waitFor(() -> !MockLocationService.running, 10000, "Mock-location service did not stop");
             waitFor(() -> MockLocationService.status(context).contains("已停止"), 5000, "Stop status was not reported");
 
-            result.putInt("checks_passed", 10);
-            result.putString("stream", "PASS: favorites persistence/dedup, device snapshot, sensor discovery, GPS mock injection and stop/cleanup.\n");
+            result.putInt("checks_passed", checksPassed);
+            result.putString("stream", "PASS: " + checksPassed + " checks; rule export/import/reload and invalid input protection, favorites persistence/dedup, device snapshot, sensor discovery, GPS mock injection and stop/cleanup.\n");
         } catch (Throwable error) {
             resultCode = Activity.RESULT_CANCELED;
             if (serviceStarted) {
@@ -76,13 +119,20 @@ public final class CoreRuntimeInstrumentation extends Instrumentation {
             }
             result.putString("stream", "FAIL: " + android.util.Log.getStackTraceString(error));
         } finally {
-            store.remove("favorites", favorite.key());
-            store.remove("history", target.key());
+            positions.edit().putString("favorites", priorFavorites).putString("history", priorHistory).commit();
+            android.content.SharedPreferences.Editor restore = rulesPrefs.edit();
+            if (priorRules == null) restore.remove("rule_list"); else restore.putString("rule_list", priorRules);
+            restore.commit();
         }
         finish(resultCode, result);
     }
 
     private interface Condition { boolean ready(); }
+    private static void rejects(com.autojump.app.data.RuleRepository repository, String document) {
+        boolean rejected = false;
+        try { repository.importRules(document); } catch (RuntimeException expected) { rejected = true; }
+        check(rejected, "Invalid import was accepted");
+    }
     private static void waitFor(Condition condition, long timeoutMs, String message) {
         long deadline = SystemClock.elapsedRealtime() + timeoutMs;
         while (!condition.ready() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(100);
@@ -92,5 +142,8 @@ public final class CoreRuntimeInstrumentation extends Instrumentation {
     private static int count(List<Position> positions, String key) {
         int n = 0; for (Position p : positions) if (p.key().equals(key)) n++; return n;
     }
-    private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
+    private static void check(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+        checksPassed++;
+    }
 }

@@ -16,7 +16,7 @@ public final class PositionStore {
             JSONArray a = new JSONArray(prefs.getString(kind, "[]"));
             for (int i=0; i<a.length(); i++) {
                 JSONObject o=a.getJSONObject(i);
-                out.add(new Position(o.getString("name"),o.getDouble("lat"),o.getDouble("lon"),o.getLong("time")));
+                out.add(new Position(o.getString("name"),o.getDouble("lat"),o.getDouble("lon"),o.getLong("time"),o.optString("locationName","")));
             }
         } catch (Exception e) { throw new IllegalStateException("位置记录损坏，请先导出诊断或清空对应列表", e); }
         return out;
@@ -35,7 +35,7 @@ public final class PositionStore {
     private void write(String kind,List<Position> entries) {
         JSONArray a=new JSONArray();
         try {
-            for (Position p:entries) a.put(new JSONObject().put("name",p.name).put("lat",p.latitude).put("lon",p.longitude).put("time",p.timestamp));
+            for (Position p:entries) a.put(new JSONObject().put("name",p.name).put("lat",p.latitude).put("lon",p.longitude).put("time",p.timestamp).put("locationName",p.locationName));
         } catch (Exception e) { throw new IllegalStateException("无法保存位置",e); }
         prefs.edit().putString(kind,a.toString()).apply();
     }

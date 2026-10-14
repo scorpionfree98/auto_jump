@@ -2,6 +2,11 @@ package cn.local.jiojio;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class CoreTest {
+    @Test public void separatesFavoriteLabelFromLocationNameAndSupportsLegacy() {
+        Position p=new Position(" 公司 ",31,117,1," 地图地点 ");
+        assertEquals("公司",p.name);assertEquals("地图地点",p.locationName);
+        assertEquals("",new Position("旧收藏",31,117,1).locationName);
+    }
     @Test public void acceptsBoundaryCoordinates() {
         assertEquals("90.000000, -180.000000",Position.parse("north","90","-180").coordinates());
         assertEquals(-90,Position.parse("south","-90","180").latitude,0);
