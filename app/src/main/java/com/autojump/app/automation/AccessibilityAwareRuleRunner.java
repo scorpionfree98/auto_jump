@@ -1,5 +1,6 @@
 package com.autojump.app.automation;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -8,10 +9,14 @@ import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleAction;
 import com.autojump.app.shizuku.ShizukuAccessibilityRecovery;
 import com.google.gson.Gson;
+import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Android adapter for the execution gate, holding only the application context. */
 public final class AccessibilityAwareRuleRunner {
     private static AccessibilityExecutionGate gate;
+    private static final Map<String, WeakReference<Activity>> foregroundOwners = new HashMap<>();
     public interface Callback { void onResult(boolean queued, String message); }
     private AccessibilityAwareRuleRunner() {}
 
@@ -23,9 +28,21 @@ public final class AccessibilityAwareRuleRunner {
 
     public static void enqueue(Context context, Rule rule, Callback callback) {
         Context app = context.getApplicationContext();
+        Activity foreground = context instanceof Activity ? (Activity) context : null;
         Gson gson = new Gson();
         Rule snapshot = gson.fromJson(gson.toJson(rule), Rule.class);
         new Handler(Looper.getMainLooper()).post(() -> {
+            String conditionFailure = QueueCoordinator.conditionFailure(app, snapshot);
+            if (conditionFailure != null) {
+                new ExecutionLogStore(app).append(
+                        ExecutionSession.fromRule(snapshot, System.currentTimeMillis()),
+                        "SKIPPED", conditionFailure);
+                callback.onResult(false, conditionFailure);
+                return;
+            }
+            if (foreground != null && !foreground.isFinishing() && !foreground.isDestroyed()) {
+                foregroundOwners.put(snapshot.getId(), new WeakReference<>(foreground));
+            }
             android.util.Log.i("ToolkitAccessibilityGate", "request needsAccessibility="
                     + requiresAccessibility(snapshot) + " enabled="
                     + AccessibilityServiceState.isEnabled(app) + " connected="
@@ -52,10 +69,17 @@ public final class AccessibilityAwareRuleRunner {
                         }
                         @Override public boolean enqueue(Rule selected) {
                             // Persist every recovered waiter before any external launch can
-                            // suspend this process. Dispatch on the next main-loop turn.
-                            ExecutionSession session = QueueCoordinator.enqueueDeferred(app, selected);
-                            new Handler(Looper.getMainLooper()).post(() -> QueueCoordinator.pump(app));
-                            return session != null;
+                            // suspend this process. Dispatch before the launcher callback
+                            // closes its transparent foreground activity; HyperOS may block
+                            // the same external launch immediately afterwards.
+                            WeakReference<Activity> reference = foregroundOwners.remove(selected.getId());
+                            Activity owner = reference == null ? null : reference.get();
+                            Context dispatch = owner != null && !owner.isFinishing() && !owner.isDestroyed()
+                                    ? owner : app;
+                            Context launchContext = dispatch;
+                            return ForegroundQueueDispatch.run(
+                                    () -> QueueCoordinator.enqueueDeferred(app, selected) != null,
+                                    () -> QueueCoordinator.pump(launchContext));
                         }
                     });
             gate.run(snapshot, requiresAccessibility(snapshot), callback::onResult);

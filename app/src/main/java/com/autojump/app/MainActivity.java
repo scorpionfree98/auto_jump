@@ -45,9 +45,13 @@ public class MainActivity extends AppCompatActivity {
         // the wait completes lets HyperOS suspend the recovery timer on the home screen.
         java.lang.ref.WeakReference<MainActivity> owner = new java.lang.ref.WeakReference<>(this);
         new Handler(Looper.getMainLooper()).post(() ->
-                AccessibilityAwareRuleRunner.enqueue(app, rule, (queued, message) -> {
+                AccessibilityAwareRuleRunner.enqueue(this, rule, (queued, message) -> {
                     MainActivity page = owner.get();
                     if (!queued) {
+                        if (page != null && RunConditionDialog.handles(message)) {
+                            RunConditionDialog.show(page, rule, message, page::finish);
+                            return;
+                        }
                         Toast.makeText(app, message, Toast.LENGTH_LONG).show();
                         // A merged trigger is already handled by the original request.
                         if (!message.contains("已合并")) app.startActivity(

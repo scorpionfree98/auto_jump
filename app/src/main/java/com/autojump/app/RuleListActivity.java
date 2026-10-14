@@ -159,6 +159,10 @@ public class RuleListActivity extends AppCompatActivity implements RuleAdapter.O
                             RuleListActivity page = owner.get();
                             if (page == null || page.isFinishing() || page.isDestroyed()) return;
                             if (!queued) {
+                                if (RunConditionDialog.handles(message)) {
+                                    RunConditionDialog.show(page, rule, message, null);
+                                    return;
+                                }
                                 Toast.makeText(page, message, Toast.LENGTH_LONG).show();
                                 if (!message.contains("已合并")) page.startActivity(
                                         new Intent(page, PermissionGuideActivity.class));

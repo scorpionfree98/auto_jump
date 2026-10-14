@@ -47,9 +47,23 @@ public class RuleAdapter extends RecyclerView.Adapter<RuleAdapter.ViewHolder> {
         // 显示条件摘要
         StringBuilder conditionSummary = new StringBuilder();
         if (rule.getConditions() != null && !rule.getConditions().isEmpty()) {
-            for (int i = 0; i < rule.getConditions().size(); i++) {
-                if (i > 0) conditionSummary.append(" AND ");
-                conditionSummary.append(rule.getConditions().get(i).getDescription());
+            java.util.List<String> timeWindows = new java.util.ArrayList<>();
+            java.util.List<String> required = new java.util.ArrayList<>();
+            for (com.autojump.app.domain.RuleCondition condition : rule.getConditions()) {
+                if (condition.getType() == com.autojump.app.domain.ConditionType.TIME) {
+                    timeWindows.add(condition.getDescription());
+                } else {
+                    required.add(condition.getDescription());
+                }
+            }
+            if (!timeWindows.isEmpty()) {
+                if (timeWindows.size() > 1) conditionSummary.append("(");
+                conditionSummary.append(android.text.TextUtils.join(" 或 ", timeWindows));
+                if (timeWindows.size() > 1) conditionSummary.append(")");
+            }
+            for (String item : required) {
+                if (conditionSummary.length() > 0) conditionSummary.append(" 且 ");
+                conditionSummary.append(item);
             }
         } else {
             conditionSummary.append("桌面点击 / 手机自动助手启动时执行");

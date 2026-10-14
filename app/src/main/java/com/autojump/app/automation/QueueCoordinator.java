@@ -10,6 +10,9 @@ import com.autojump.app.data.RuleRepository;
 import com.autojump.app.domain.ActionType;
 import com.autojump.app.domain.RuleCondition;
 import com.autojump.app.engine.ConditionEvaluator;
+import com.autojump.app.engine.ConditionFailureText;
+import com.autojump.app.engine.RuleConditionPolicy;
+import java.util.Calendar;
 import java.util.List;
 
 /** All launcher, UI, and service entries share one foreground execution slot. */
@@ -182,13 +185,23 @@ public final class QueueCoordinator {
         KeyguardManager manager = (KeyguardManager) c.getSystemService(Context.KEYGUARD_SERVICE);
         return manager != null && manager.isKeyguardLocked();
     }
-    private static String conditionFailure(Context c, Rule rule) {
+    /** Shared by foreground preflight and the authoritative check when a queued rule starts. */
+    public static String conditionFailure(Context c, Rule rule) {
         ConditionEvaluator evaluator = new ConditionEvaluator();
         for (RuleCondition condition : rule.getConditions()) {
             String reason = evaluator.unavailableReason(c, condition);
             if (reason != null) return "条件无法检查：" + reason;
-            if (!evaluator.matches(c, condition)) return "条件不满足：" + condition.getDescription();
         }
-        return null;
+        if (RuleConditionPolicy.matches(rule.getConditions(), condition -> evaluator.matches(c, condition))) {
+            return null;
+        }
+        for (RuleCondition condition : rule.getConditions()) {
+            if (condition.getType() != com.autojump.app.domain.ConditionType.TIME
+                    && !evaluator.matches(c, condition)) {
+                return "条件不满足：\n" + evaluator.mismatchReason(c, condition)
+                        + "\n因此本次未执行。";
+            }
+        }
+        return ConditionFailureText.timeWindows(rule.getConditions(), Calendar.getInstance());
     }
 }

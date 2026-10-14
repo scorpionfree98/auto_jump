@@ -25,7 +25,8 @@ public class Rule implements Serializable {
     private int priority;           // 优先级（数字越大越优先）
     private boolean enabled;        // 是否启用
     private boolean requestUnlockBeforeRun; // 锁屏时是否唤醒并交给系统认证
-    private List<RuleCondition> conditions;  // 条件列表（AND 关系）
+    // Multiple TIME entries are alternative windows; other entries are mandatory.
+    private List<RuleCondition> conditions;
     private List<RuleAction> actions;   // 按顺序执行的动作列表
 
     public Rule() {

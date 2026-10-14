@@ -21,10 +21,7 @@ public class RuleMatcher {
         });
         List<Rule> matches = new ArrayList<>();
         for (Rule rule : candidates) {
-            boolean matched = true;
-            for (RuleCondition condition : rule.getConditions()) {
-                if (!predicate.matches(condition)) { matched = false; break; }
-            }
+            boolean matched = RuleConditionPolicy.matches(rule.getConditions(), predicate::matches);
             if (matched) matches.add(rule);
         }
         return matches;

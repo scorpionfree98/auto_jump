@@ -194,7 +194,7 @@ public class RuleEditActivity extends AppCompatActivity {
         List<String> options = ShortcutEmoji.options();
         String[] labels = new String[options.size()];
         for (int i = 0; i < options.size(); i++) labels[i] = options.get(i) + "  使用这个图标";
-        int checked = Math.max(0, options.indexOf(rule.getShortcutEmoji()));
+        int checked = options.indexOf(rule.getShortcutEmoji());
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("选择指令图标")
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
@@ -202,8 +202,48 @@ public class RuleEditActivity extends AppCompatActivity {
                     updateShortcutIconButton();
                     dialog.dismiss();
                 })
+                .setNeutralButton("自定义 Emoji", (dialog, which) -> showCustomShortcutIconDialog())
                 .setNegativeButton("取消", null)
                 .show();
+    }
+
+    private void showCustomShortcutIconDialog() {
+        com.google.android.material.textfield.TextInputLayout field =
+                new com.google.android.material.textfield.TextInputLayout(this);
+        field.setHint("输入或粘贴一个 Emoji");
+        EditText input = new com.google.android.material.textfield.TextInputEditText(field.getContext());
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setText(rule.getShortcutEmoji());
+        input.setSelectAllOnFocus(true);
+        field.addView(input);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (24 * getResources().getDisplayMetrics().density);
+        content.setPadding(padding, 0, padding, 0);
+        TextView help = new TextView(this);
+        help.setText("使用输入法的 Emoji 键盘，也可粘贴。支持肤色、国旗和组合表情；显示效果取决于手机字体。");
+        content.addView(help);
+        content.addView(field);
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("自定义指令图标")
+                .setView(content)
+                .setPositiveButton("使用", null)
+                .setNegativeButton("取消", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
+                .setOnClickListener(view -> {
+                    String emoji = input.getText().toString().trim();
+                    if (!ShortcutEmoji.isValid(emoji)) {
+                        field.setError("请输入一个 Emoji，不要输入文字或多个独立表情");
+                        return;
+                    }
+                    rule.setShortcutEmoji(emoji);
+                    updateShortcutIconButton();
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     private void updateShortcutIconButton() {
@@ -575,11 +615,16 @@ public class RuleEditActivity extends AppCompatActivity {
             com.autojump.app.util.ShortcutUtil.refreshDynamicShortcut(this);
             Toast.makeText(this, "指令已保存", Toast.LENGTH_SHORT).show();
             if (runNow) {
-                Context app = getApplicationContext();
-                com.autojump.app.automation.AccessibilityAwareRuleRunner.enqueue(app, rule,
+                com.autojump.app.automation.AccessibilityAwareRuleRunner.enqueue(this, rule,
                         (queued, message) -> {
-                            if (!queued) Toast.makeText(app, message, Toast.LENGTH_LONG).show();
+                            if (!queued && RunConditionDialog.handles(message)) {
+                                RunConditionDialog.show(this, rule, message, this::finish);
+                            } else {
+                                if (!queued) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                                finish();
+                            }
                         });
+                return;
             }
             finish();
         } catch (IllegalArgumentException error) {

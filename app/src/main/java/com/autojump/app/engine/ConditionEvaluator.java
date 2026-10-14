@@ -20,6 +20,54 @@ import java.util.Calendar;
 import java.util.Set;
 
 public class ConditionEvaluator {
+    public String mismatchReason(Context context, RuleCondition condition) {
+        if (condition == null || condition.getType() == null) return "条件数据无效";
+        try {
+            switch (condition.getType()) {
+                case WIFI:
+                    WifiManager wifi = (WifiManager) context.getApplicationContext()
+                            .getSystemService(Context.WIFI_SERVICE);
+                    String ssid = "未连接";
+                    if (wifi == null || !wifi.isWifiEnabled()) ssid = "WiFi 未开启";
+                    else if (wifi.getConnectionInfo() != null
+                            && wifi.getConnectionInfo().getSSID() != null
+                            && !WifiManager.UNKNOWN_SSID.equals(wifi.getConnectionInfo().getSSID())) {
+                        ssid = "「" + wifi.getConnectionInfo().getSSID().replace("\"", "") + "」";
+                    }
+                    return "当前 WiFi：" + ssid + "\n要求 WiFi：「" + condition.getSsid() + "」";
+                case BLUETOOTH:
+                    BluetoothAdapter adapter;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        BluetoothManager manager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
+                        adapter = manager == null ? null : manager.getAdapter();
+                    } else adapter = BluetoothAdapter.getDefaultAdapter();
+                    String bluetooth = adapter == null ? "设备不支持蓝牙"
+                            : adapter.isEnabled() ? "已开启，但已配对设备中未找到目标" : "未开启";
+                    return "当前蓝牙：" + bluetooth + "\n要求已配对设备：「"
+                            + condition.getDeviceName() + "」";
+                case CHARGING:
+                    boolean charging = isCharging(context);
+                    return "当前状态：" + (charging ? "充电中" : "未充电")
+                            + "\n要求状态：" + (condition.isShouldBeCharging() ? "充电中" : "未充电");
+                case LOCATION:
+                    Location location = lastLocation(context);
+                    String place = condition.getPlaceName() == null || condition.getPlaceName().isEmpty()
+                            ? "目标位置" : condition.getPlaceName();
+                    if (location == null) return "当前状态：暂未取得当前位置\n要求位置：「" + place
+                            + "」附近 " + condition.getRadiusMeters() + " 米内";
+                    float[] distance = new float[1];
+                    Location.distanceBetween(location.getLatitude(), location.getLongitude(),
+                            condition.getLatitude(), condition.getLongitude(), distance);
+                    return "当前位置：距离「" + place + "」约 " + Math.round(distance[0])
+                            + " 米\n要求距离：" + condition.getRadiusMeters() + " 米内";
+                default:
+                    return "要求条件：「" + condition.getDescription() + "」\n当前状态未达到要求";
+            }
+        } catch (RuntimeException ignored) {
+            return "要求条件：「" + condition.getDescription() + "」\n当前状态无法读取或未达到要求";
+        }
+    }
+
     public String unavailableReason(Context context, RuleCondition c) {
         if (c == null || c.getType() == null) return "条件数据无效";
         if ((c.getType() == com.autojump.app.domain.ConditionType.WIFI
@@ -110,37 +158,44 @@ public class ConditionEvaluator {
     }
 
     private boolean matchesCharging(Context context, RuleCondition condition) {
-        boolean charging;
+        return isCharging(context) == condition.isShouldBeCharging();
+    }
+
+    private boolean isCharging(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             BatteryManager manager = (BatteryManager) context.getSystemService(Context.BATTERY_SERVICE);
             if (manager == null) return false;
-            charging = manager.isCharging();
+            return manager.isCharging();
         } else {
             Intent status = context.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
             if (status == null) return false;
             int value = status.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-            charging = value == BatteryManager.BATTERY_STATUS_CHARGING
+            return value == BatteryManager.BATTERY_STATUS_CHARGING
                     || value == BatteryManager.BATTERY_STATUS_FULL;
         }
-        return charging == condition.isShouldBeCharging();
     }
 
     private boolean matchesLocation(Context context, RuleCondition condition) {
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) return false;
-        LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-        if (manager == null) return false;
-        Location gps = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-        Location network = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-        Location location;
-        if (gps != null && network != null) location = gps.getTime() > network.getTime() ? gps : network;
-        else location = gps != null ? gps : network;
+        Location location = lastLocation(context);
         if (location == null) return false;
         float[] result = new float[1];
         Location.distanceBetween(location.getLatitude(), location.getLongitude(),
                 condition.getLatitude(), condition.getLongitude(), result);
         return result[0] <= condition.getRadiusMeters();
+    }
+
+    private Location lastLocation(Context context) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return null;
+        LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        if (manager == null) return null;
+        Location gps = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        Location network = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        Location location;
+        if (gps != null && network != null) location = gps.getTime() > network.getTime() ? gps : network;
+        else location = gps != null ? gps : network;
+        return location;
     }
 }

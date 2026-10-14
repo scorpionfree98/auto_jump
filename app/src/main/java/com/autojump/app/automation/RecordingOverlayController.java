@@ -27,7 +27,7 @@ final class RecordingOverlayController {
 
     interface CaptureListener {
         void onCaptured(List<TouchTracePolicy.RawPoint> samples, int width, int height,
-                        int orientation);
+                        int orientation, long capturedAt);
         void onRejected(String reason);
     }
 
@@ -43,6 +43,14 @@ final class RecordingOverlayController {
     private final AccessibilityService service;
     private final WindowManager windowManager;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final RecordingHandoff handoff = new RecordingHandoff(new RecordingHandoff.Scheduler() {
+        @Override public void post(Runnable action, long delayMs) {
+            handler.postDelayed(action, delayMs);
+        }
+        @Override public void remove(Runnable action) {
+            handler.removeCallbacks(action);
+        }
+    });
     private View overlay;
     private String requestId;
     private String targetPackage;
@@ -108,19 +116,24 @@ final class RecordingOverlayController {
         requestId = nextRequestId;
         targetPackage = nextTargetPackage;
         overlay = createConfirmationView(listener);
-        try {
-            windowManager.addView(overlay, layoutParams());
-        } catch (RuntimeException error) {
-            hide();
-            listener.onCancel(nextRequestId);
-        }
+        // A dispatch callback is not proof the target app has processed its final UP.
+        // Leave the target unobstructed briefly before asking for human confirmation.
+        handoff.defer(RecordingHandoff.BEFORE_CONFIRMATION_MS, () -> {
+            try {
+                windowManager.addView(overlay, layoutParams());
+            } catch (RuntimeException error) {
+                hide();
+                listener.onCancel(nextRequestId);
+            }
+        });
     }
 
     void hide() {
+        handoff.cancel();
         cancelCaptureTimeout();
         if (overlay != null) {
             try {
-                windowManager.removeView(overlay);
+                windowManager.removeViewImmediate(overlay);
             } catch (RuntimeException ignored) {
                 // The system may already have removed the accessibility window.
             }
@@ -162,12 +175,22 @@ final class RecordingOverlayController {
                 addHistoricalSamples(samples, event);
                 addCurrentSample(samples, event);
                 active[0] = false;
-                int width = Math.max(1, view.getWidth());
-                int height = Math.max(1, view.getHeight());
+                android.util.DisplayMetrics display = new android.util.DisplayMetrics();
+                windowManager.getDefaultDisplay().getRealMetrics(display);
+                int width = display.widthPixels;
+                int height = display.heightPixels;
                 int orientation = service.getResources().getConfiguration().orientation;
                 List<TouchTracePolicy.RawPoint> result = new ArrayList<>(samples);
+                long capturedAt = System.currentTimeMillis();
                 hide();
-                listener.onCaptured(result, width, height, orientation);
+                if (view.isAttachedToWindow()) {
+                    listener.onRejected("录制层未能移除，未派发点击，请重新录制");
+                    return true;
+                }
+                // Never inject while handling the physical UP of the consuming overlay.
+                // Detachment is synchronous; defer until input routing can settle too.
+                handoff.defer(RecordingHandoff.BEFORE_REPLAY_MS,
+                        () -> listener.onCaptured(result, width, height, orientation, capturedAt));
                 return true;
             }
             if (action == MotionEvent.ACTION_CANCEL) {
@@ -196,7 +219,8 @@ final class RecordingOverlayController {
         root.setBackground(background);
 
         TextView message = new TextView(service);
-        message.setText("刚才的操作成功了吗？可继续录制下一个动作。");
+        message.setText("已尝试回放，请检查目标按钮是否实际响应。\n未生效请重录，不要点完成。");
+        message.setMaxWidth(dp(240));
         message.setTextColor(Color.rgb(35, 35, 35));
         message.setTextSize(14);
         root.addView(message);
@@ -209,13 +233,13 @@ final class RecordingOverlayController {
         root.addView(actions, actionParams);
 
         Button next = new Button(service);
-        next.setText("继续录制");
+        next.setText("已生效，继续录制");
         actions.addView(next);
         Button finish = new Button(service);
-        finish.setText("完成");
+        finish.setText("已生效，完成");
         actions.addView(finish);
         Button retry = new Button(service);
-        retry.setText("重录本次");
+        retry.setText("未生效，重录本次");
         actions.addView(retry);
         Button cancel = new Button(service);
         cancel.setText("取消");
@@ -241,13 +265,15 @@ final class RecordingOverlayController {
 
     private void addHistoricalSamples(List<TouchTracePolicy.RawPoint> samples, MotionEvent event) {
         for (int index = 0; index < event.getHistorySize(); index++) {
-            samples.add(new TouchTracePolicy.RawPoint(event.getHistoricalX(0, index),
-                    event.getHistoricalY(0, index), event.getHistoricalEventTime(index)));
+            samples.add(RecordingDisplayCoordinates.point(event.getHistoricalX(0, index),
+                    event.getHistoricalY(0, index), event.getRawX() - event.getX(0),
+                    event.getRawY() - event.getY(0), event.getHistoricalEventTime(index)));
         }
     }
 
     private void addCurrentSample(List<TouchTracePolicy.RawPoint> samples, MotionEvent event) {
-        samples.add(new TouchTracePolicy.RawPoint(event.getX(0), event.getY(0),
+        samples.add(RecordingDisplayCoordinates.point(event.getX(0), event.getY(0),
+                event.getRawX() - event.getX(0), event.getRawY() - event.getY(0),
                 event.getEventTime()));
     }
 

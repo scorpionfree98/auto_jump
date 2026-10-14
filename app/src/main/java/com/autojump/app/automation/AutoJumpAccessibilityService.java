@@ -56,6 +56,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     private ExecutionLogStore logs;
     private ClickRecordingStore recordingStore;
     private RecordingOverlayController recordingOverlay;
+    private long recordingCallbackGeneration;
     private Runnable recordingExpiry;
     private String foregroundPackage;
     private String recordingCandidateRequestId;
@@ -258,9 +259,10 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
         recordingOverlay.captureNextGesture(state.getRequestId(), state.getTargetPackage(),
                 new RecordingOverlayController.CaptureListener() {
                     @Override public void onCaptured(List<TouchTracePolicy.RawPoint> samples,
-                                                     int width, int height, int orientation) {
+                                                     int width, int height, int orientation,
+                                                     long capturedAt) {
                         handleCapturedTrace(state.getRequestId(), samples, width, height,
-                                orientation);
+                                orientation, capturedAt);
                     }
 
                     @Override public void onRejected(String reason) {
@@ -276,7 +278,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
 
     private void handleCapturedTrace(String requestId,
                                      List<TouchTracePolicy.RawPoint> samples,
-                                     int width, int height, int orientation) {
+                                     int width, int height, int orientation, long capturedAt) {
         ClickRecordingStore.State state = recordingStore.get();
         if (state.getStatus() != ClickRecordingStore.Status.ARMED
                 || requestId == null || !requestId.equals(state.getRequestId())) return;
@@ -298,7 +300,8 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             returnToClickEditor();
             return;
         }
-        long now = System.currentTimeMillis();
+        // Preserve the user's original timing, excluding the overlay handoff delay.
+        long now = capturedAt;
         long duration = trace.get(trace.size() - 1).getElapsedMs();
         long delayBeforeMs = Math.max(0, now - state.getStartedAt() - duration);
         RecordedTouch touch = new RecordedTouch(requestId, state.getTargetPackage(), trace,
@@ -306,8 +309,10 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
                 delayBeforeMs, now);
         if (recordingStore.beginReplay(requestId).getStatus()
                 != ClickRecordingStore.Status.REPLAYING) return;
+        final long callbackGeneration = recordingCallbackGeneration;
         dispatchRecordedTouch(trace, width, height, new GestureDispatchListener() {
             @Override public void onCompleted() {
+                if (callbackGeneration != recordingCallbackGeneration) return;
                 if (recordingStore.beginConfirmation(touch).getStatus()
                         != ClickRecordingStore.Status.CONFIRMING) return;
                 recordingOverlay.showConfirmation(requestId, touch.getTargetPackage(),
@@ -370,6 +375,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
             }
 
             @Override public void onFailed(String reason) {
+                if (callbackGeneration != recordingCallbackGeneration) return;
                 recordingStore.reject(requestId, ClickRecordingStore.Status.REJECTED, reason);
                 Toast.makeText(AutoJumpAccessibilityService.this, reason, Toast.LENGTH_LONG).show();
                 returnToClickEditor();
@@ -397,6 +403,7 @@ public class AutoJumpAccessibilityService extends AccessibilityService {
     }
 
     private void hideRecordingOverlay() {
+        recordingCallbackGeneration++;
         if (recordingOverlay != null) recordingOverlay.hide();
         cancelRecordingExpiry();
     }

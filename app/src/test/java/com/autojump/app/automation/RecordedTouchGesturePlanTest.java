@@ -10,6 +10,18 @@ import static org.junit.Assert.*;
 public class RecordedTouchGesturePlanTest {
     private final RecordedTouchGesturePlan plan = new RecordedTouchGesturePlan();
 
+    @Test public void stationaryClickDoesNotDispatchEmptyContinuationSegments() {
+        List<RecordedTouchGesturePlan.Segment> segments = plan.segments(Arrays.asList(
+                new TouchPoint(0.5, 0.7, 0),
+                new TouchPoint(0.5, 0.7, 12),
+                new TouchPoint(0.5, 0.7, 80),
+                new TouchPoint(0.5, 0.7, 160)));
+        assertEquals(1, segments.size());
+        assertEquals(160, segments.get(0).getDurationMs());
+        assertEquals(0.5, segments.get(0).getStart().getRelativeX(), 0);
+        assertEquals(0.7, segments.get(0).getEnd().getRelativeY(), 0);
+    }
+
     @Test
     public void preservesPerSegmentTimingAndStationaryMoves() {
         List<RecordedTouchGesturePlan.Segment> segments = plan.segments(Arrays.asList(
