@@ -2,30 +2,16 @@ name: Android Build
 
 on:
   push:
-    paths:
-      - "app/**"
-      - "gradle/**"
-      - "build.gradle"
-      - "settings.gradle"
-      - "gradle.properties"
-      - "gradlew"
-      - ".github/workflows/android-build.yml"
+    branches: ["**"]
   pull_request:
-    paths:
-      - "app/**"
-      - "gradle/**"
-      - "build.gradle"
-      - "settings.gradle"
-      - "gradle.properties"
-      - "gradlew"
-      - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-build-${{ github.ref }}
+  # Do not cancel an earlier main push: every successful push needs its own release.
+  group: android-build-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -33,10 +19,23 @@ jobs:
     name: Test, lint and build APKs
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      code: ${{ steps.version.outputs.code }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Allocate reproducible release version
+        id: version
+        run: |
+          version="0.3.$GITHUB_RUN_NUMBER"
+          code=$((1000 + GITHUB_RUN_NUMBER))
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "ORG_GRADLE_PROJECT_toolkitVersionName=$version" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_toolkitVersionCode=$code" >> "$GITHUB_ENV"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v6
@@ -85,6 +84,11 @@ jobs:
                                       capture_output=True, text=True)
               if result.returncode or 'com.amap.api.v2.apikey' not in result.stdout or key not in result.stdout:
                   raise SystemExit('Compiled APK AMap configuration check failed')
+              badging = subprocess.run([aapt, 'dump', 'badging', apk], capture_output=True, text=True)
+              expected_code = os.environ['ORG_GRADLE_PROJECT_toolkitVersionCode']
+              expected_name = os.environ['ORG_GRADLE_PROJECT_toolkitVersionName']
+              if badging.returncode or f"versionCode='{expected_code}'" not in badging.stdout or f"versionName='{expected_name}'" not in badging.stdout:
+                  raise SystemExit('Compiled APK version does not match release version')
           print('AMap key injection verified in all compiled APKs; key value omitted.')
           PY
 
@@ -104,6 +108,10 @@ jobs:
             [[ -n "$value" ]] && configured=$((configured + 1))
           done
           if [[ "$configured" -eq 0 ]]; then
+            if [[ "$GITHUB_REF" == 'refs/heads/main' ]]; then
+              echo "Main releases require all four signing secrets." >&2
+              exit 1
+            fi
             echo "Signing secrets are not configured; keeping the unsigned release APK."
             exit 0
           fi
@@ -147,3 +155,57 @@ jobs:
             app/build/outputs/apk/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+          overwrite: true
+
+  release:
+    name: Publish signed main release
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.build.outputs.version }}
+      VERSION_CODE: ${{ needs.build.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download tested build
+        run: gh run download "$GITHUB_RUN_ID" --name "toolkit-apks-$GITHUB_RUN_NUMBER" --dir tested-apks
+
+      - name: Prepare public release assets
+        run: |
+          mkdir -p release-assets
+          signed_apk="tested-apks/release/toolkit-release-signed.apk"
+          test -s "$signed_apk"
+          cp "$signed_apk" "release-assets/toolkit-$VERSION.apk"
+          (cd release-assets && sha256sum "toolkit-$VERSION.apk" > SHA256SUMS.txt)
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('release-assets/build-info.json').write_text(json.dumps({
+              'versionName': os.environ['VERSION'],
+              'versionCode': int(os.environ['VERSION_CODE']),
+              'commit': os.environ['GITHUB_SHA'],
+              'runId': os.environ['GITHUB_RUN_ID'],
+          }, indent=2) + '\n')
+          PY
+
+      - name: Publish once and keep latest tied to current main
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            git fetch origin "refs/tags/$tag:refs/tags/$tag"
+            test "$(git rev-parse "$tag^{commit}")" = "$GITHUB_SHA"
+            echo "Release already exists for this run; preserving its assets."
+          else
+            gh release create "$tag" release-assets/* \
+              --target "$GITHUB_SHA" --title "工具合集 $VERSION" \
+              --generate-notes --latest=false
+          fi
+          current_main="$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$current_main" == "$GITHUB_SHA" ]]; then
+            gh release edit "$tag" --latest
+          fi
