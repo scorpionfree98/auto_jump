@@ -62,6 +62,20 @@ AMAP_API_KEY=your-local-key
 
 Release 构建可选读取本地 `signing/release-key.properties`。`signing/`、keystore、Key、用户配置、APK、设备日志和备份均被 `.gitignore` 排除。
 
+### GitHub Actions 自动构建
+
+`.github/workflows/android-build.yml` 会在相关代码 push、Pull Request 和手动触发时运行单元测试、Release Lint，并上传 Debug 与 Release APK，产物保留 14 天。
+
+未配置签名时，Release APK 是未签名产物；如果需要生成可覆盖正式安装包的签名 APK，请在仓库的 Actions Secrets 中配置：
+
+- `ANDROID_RELEASE_KEYSTORE_BASE64`：release keystore 的 Base64 内容
+- `ANDROID_RELEASE_STORE_PASSWORD`
+- `ANDROID_RELEASE_KEY_ALIAS`
+- `ANDROID_RELEASE_KEY_PASSWORD`
+- `AMAP_API_KEY`：可选，仅在 push 或手动构建中注入
+
+签名 Secrets 不会提供给 Pull Request。密钥文件和密码不会写入仓库或上传到构建产物。
+
 ## 目录
 
 ```text

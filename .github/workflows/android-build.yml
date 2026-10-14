@@ -1,0 +1,126 @@
+name: Android Build
+
+on:
+  push:
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/android-build.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/android-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, lint and build APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Test and build pull request
+        if: github.event_name == 'pull_request'
+        run: ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleRelease --no-daemon
+
+      - name: Test and build trusted revision
+        if: github.event_name != 'pull_request'
+        env:
+          AMAP_API_KEY: ${{ secrets.AMAP_API_KEY }}
+        run: |
+          args=()
+          if [[ -n "$AMAP_API_KEY" ]]; then
+            args+=("-PAMAP_API_KEY=$AMAP_API_KEY")
+          fi
+          ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleRelease "${args[@]}" --no-daemon
+
+      # Signing secrets are never exposed to pull-request code. Gradle first produces an
+      # unsigned release; apksigner receives credentials only after the build has finished.
+      - name: Sign release APK when secrets are configured
+        if: github.event_name != 'pull_request'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          values=("$RELEASE_KEYSTORE_BASE64" "$RELEASE_STORE_PASSWORD" "$RELEASE_KEY_ALIAS" "$RELEASE_KEY_PASSWORD")
+          configured=0
+          for value in "${values[@]}"; do
+            [[ -n "$value" ]] && configured=$((configured + 1))
+          done
+          if [[ "$configured" -eq 0 ]]; then
+            echo "Signing secrets are not configured; keeping the unsigned release APK."
+            exit 0
+          fi
+          if [[ "$configured" -ne 4 ]]; then
+            echo "Signing secrets are incomplete; configure all four ANDROID_RELEASE_* secrets." >&2
+            exit 1
+          fi
+
+          unsigned_apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*-unsigned.apk' -print -quit)"
+          if [[ -z "$unsigned_apk" ]]; then
+            echo "Unsigned release APK was not produced." >&2
+            exit 1
+          fi
+          keystore="$RUNNER_TEMP/toolkit-release.jks"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$apksigner" sign \
+            --ks "$keystore" \
+            --ks-pass env:RELEASE_STORE_PASSWORD \
+            --ks-key-alias "$RELEASE_KEY_ALIAS" \
+            --key-pass env:RELEASE_KEY_PASSWORD \
+            --out app/build/outputs/apk/release/toolkit-release-signed.apk \
+            "$unsigned_apk"
+          "$apksigner" verify --verbose --print-certs \
+            app/build/outputs/apk/release/toolkit-release-signed.apk
+          rm -f "$keystore"
+
+      - name: Create checksums
+        run: |
+          find app/build/outputs/apk -type f -name '*.apk' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > app/build/outputs/apk/SHA256SUMS.txt
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolkit-apks-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/**/*.apk
+            app/build/outputs/apk/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
