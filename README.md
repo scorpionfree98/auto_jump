@@ -1,6 +1,6 @@
 # 工具合集
 
-Android 本地工具与快捷指令执行器。应用名称固定为“工具合集”，正式主仓库为 `auto_jump`，应用 ID 为 `cn.local.toolkit`。
+Android 本地工具与快捷指令执行器。应用名称固定为“工具合集”，正式主仓库为 [`toolkit`](https://github.com/scorpionfree98/toolkit)，应用 ID 为 `cn.local.toolkit`。
 
 当前版本：`0.2.3`（versionCode 5）。
 
