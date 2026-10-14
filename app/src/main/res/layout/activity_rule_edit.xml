@@ -34,7 +34,7 @@
     <com.google.android.material.button.MaterialButton android:id="@+id/btn_advanced_rule" style="@style/Widget.AutoJump.Button.Outlined" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="高级设置 · 条件与优先级"/>
     <LinearLayout android:id="@+id/advanced_rule" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
       <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="条件只在本应用被启动时检查，不会主动定时唤起。已有条件仍会保留。" android:textAppearance="@style/TextAppearance.AutoJump.Caption"/>
-      <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/Widget.AutoJump.TextInputLayout" android:hint="执行优先级" app:helperText="数字越大越优先；例如 10 会排在 1 前面">
+      <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/Widget.AutoJump.TextInputLayout" android:hint="旧版规则匹配优先级" app:helperText="数字越大，旧版规则匹配越优先。当前指令按加入顺序排队，此值不改变执行顺序。">
         <com.google.android.material.textfield.TextInputEditText android:id="@+id/et_priority" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="0"/>
       </com.google.android.material.textfield.TextInputLayout>
       <LinearLayout android:id="@+id/ll_conditions" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>

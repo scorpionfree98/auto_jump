@@ -62,11 +62,31 @@ jobs:
         env:
           AMAP_API_KEY: ${{ secrets.AMAP_API_KEY }}
         run: |
-          args=()
-          if [[ -n "$AMAP_API_KEY" ]]; then
-            args+=("-PAMAP_API_KEY=$AMAP_API_KEY")
+          if [[ -z "$AMAP_API_KEY" || "$AMAP_API_KEY" == 'CONFIGURE_AMAP_KEY' ]]; then
+            echo "Configure the AMAP_API_KEY repository secret before building a distributable APK." >&2
+            exit 1
           fi
-          ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleRelease "${args[@]}" --no-daemon
+          ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleDebug :app:assembleRelease "-PAMAP_API_KEY=$AMAP_API_KEY" --no-daemon
+
+      - name: Verify AMap key in compiled APKs
+        if: github.event_name != 'pull_request'
+        env:
+          AMAP_API_KEY: ${{ secrets.AMAP_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import glob, os, subprocess
+          key = os.environ['AMAP_API_KEY']
+          aapt = os.path.join(os.environ['ANDROID_HOME'], 'build-tools', '35.0.0', 'aapt')
+          apks = glob.glob('app/build/outputs/apk/*/*.apk')
+          if not apks:
+              raise SystemExit('No APKs found for AMap configuration verification')
+          for apk in apks:
+              result = subprocess.run([aapt, 'dump', 'xmltree', apk, 'AndroidManifest.xml'],
+                                      capture_output=True, text=True)
+              if result.returncode or 'com.amap.api.v2.apikey' not in result.stdout or key not in result.stdout:
+                  raise SystemExit('Compiled APK AMap configuration check failed')
+          print('AMap key injection verified in all compiled APKs; key value omitted.')
+          PY
 
       # Signing secrets are never exposed to pull-request code. Gradle first produces an
       # unsigned release; apksigner receives credentials only after the build has finished.

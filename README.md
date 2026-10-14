@@ -12,6 +12,7 @@ Android 本地工具与快捷指令执行器。应用名称固定为“工具合
 - 长按桌面图标可进入“工具合集入口”和“自动任务管理”。
 - 可由小米系统自动任务等外部自动化工具启动，不在应用内重复实现定时器。
 - 条件支持时间、WiFi、蓝牙、充电和位置，多个条件按 AND 关系判断。
+- 指令按加入顺序串行排队；编辑页的旧版规则匹配优先级不会改变当前执行队列顺序。
 - 动作支持 URL scheme、等待、点击和录制触摸回放，按顺序串行执行。
 - 支持屏幕唤醒与 Android 系统解锁衔接；不会读取、保存或模拟 PIN、图案、密码、指纹和人脸。
 - 执行结果区分“动作已提交”和“业务成功”；没有目标应用的业务反馈时不会报告成功。
@@ -72,7 +73,7 @@ Release 构建可选读取本地 `signing/release-key.properties`。`signing/`�
 - `ANDROID_RELEASE_STORE_PASSWORD`
 - `ANDROID_RELEASE_KEY_ALIAS`
 - `ANDROID_RELEASE_KEY_PASSWORD`
-- `AMAP_API_KEY`：可选，仅在 push 或手动构建中注入
+- `AMAP_API_KEY`：push 和手动构建必填，构建后会核验 APK 中的注入结果；PR 构建使用占位值，仅用于代码检查
 
 签名 Secrets 不会提供给 Pull Request。密钥文件和密码不会写入仓库或上传到构建产物。
 
