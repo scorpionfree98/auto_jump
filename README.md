@@ -65,9 +65,9 @@ Release 构建可选读取本地 `signing/release-key.properties`。`signing/`�
 
 ### GitHub Actions 自动构建
 
-`.github/workflows/android-build.yml` 会在相关代码 push、Pull Request 和手动触发时运行单元测试、Release Lint，并上传 Debug 与 Release APK，产物保留 14 天。
+正式分支为 `main`。`.github/workflows/android-build.yml` 在分支 push、Pull Request 和手动触发时运行单元测试、Release Lint，并上传 APK 构建产物，保留 14 天。每次 push 到 `main`（包括文档变更）成功后自动发布独立版本 Release，附正式签名 APK、SHA-256 及构建元数据。
 
-未配置签名时，Release APK 是未签名产物；如果需要生成可覆盖正式安装包的签名 APK，请在仓库的 Actions Secrets 中配置：
+版本为 `0.3.<构建序号>`，Android versionCode 为 `1000 + 构建序号`，重跑同一次构建不重复发布。主分支发布必须具备完整签名材料，不允许把未签名包当正式安装包。详见 [发布规则](docs/github-release.md)。在仓库的 Actions Secrets 中配置：
 
 - `ANDROID_RELEASE_KEYSTORE_BASE64`：release keystore 的 Base64 内容
 - `ANDROID_RELEASE_STORE_PASSWORD`

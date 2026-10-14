@@ -3,6 +3,8 @@ def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) localPropertiesFile.withInputStream { localProperties.load(it) }
 def amapApiKey = project.findProperty('AMAP_API_KEY') ?: localProperties.getProperty('AMAP_API_KEY') ?: 'CONFIGURE_AMAP_KEY'
+def toolkitVersionCode = (project.findProperty('toolkitVersionCode') ?: '5').toInteger()
+def toolkitVersionName = project.findProperty('toolkitVersionName') ?: '0.2.3'
 def releaseSigningFile = rootProject.file('signing/release-key.properties')
 def releaseSigningValues = new Properties()
 if (releaseSigningFile.exists()) releaseSigningFile.withInputStream { releaseSigningValues.load(it) }
@@ -20,8 +22,8 @@ android {
         applicationId queueRuntimeOnly ? 'cn.local.toolkit.runtime' : 'cn.local.toolkit'
         minSdk 26
         targetSdk 35
-        versionCode 5
-        versionName '0.2.3'
+        versionCode = toolkitVersionCode
+        versionName = toolkitVersionName
         testInstrumentationRunner project.findProperty('runtimeTestRunner') ?: 'cn.local.jiojio.CoreRuntimeInstrumentation'
     }
     if (releaseSigningFile.exists()) {
