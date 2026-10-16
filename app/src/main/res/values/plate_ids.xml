@@ -1,0 +1,11 @@
+<resources>
+    <item name="tool_plate_entry" type="id" />
+    <item name="plate_number_input" type="id" />
+    <item name="plate_preview" type="id" />
+    <item name="plate_blue" type="id" />
+    <item name="plate_green" type="id" />
+    <item name="plate_save" type="id" />
+    <item name="plate_show" type="id" />
+    <item name="plate_history" type="id" />
+    <item name="plate_quick_switch" type="id" />
+</resources>

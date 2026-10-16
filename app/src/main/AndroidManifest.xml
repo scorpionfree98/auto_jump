@@ -37,6 +37,8 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>
         </activity>
         <activity android:name=".ToolboxActivity" android:exported="true" />
+        <activity android:name=".plate.PlateManagerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".plate.PlateDisplayActivity" android:exported="false" android:screenOrientation="sensorLandscape" />
         <activity android:name="com.autojump.app.RuleListActivity" android:exported="true" android:theme="@style/Theme.AutoJump">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>

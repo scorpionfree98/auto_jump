@@ -72,6 +72,8 @@ public final class ToolboxActivity extends Activity {
         LinearLayout device=actionTile("▦","设备信息","系统与网络",true);toolRow.addView(device,new LinearLayout.LayoutParams(0,dp(106),1));device.setOnClickListener(v->showDeviceInfo());
         LinearLayout hardware=actionTile("⌁","硬件检测","传感器、相机等",true);LinearLayout.LayoutParams hwp=new LinearLayout.LayoutParams(0,dp(106),1);hwp.leftMargin=dp(10);toolRow.addView(hardware,hwp);hardware.setOnClickListener(v->startActivity(new Intent(this,HardwareActivity.class)));
 
+        LinearLayout plates=actionTile("▤","全屏车牌","历史切换 · 置顶 · 本机保存",true);plates.setId(R.id.tool_plate_entry);page.addView(plates,margin(matchWrap(),0,dp(10),0,0));plates.setOnClickListener(v->startActivity(new Intent(this,cn.local.jiojio.plate.PlateManagerActivity.class)));
+
         sectionTitle(page,"网络测速","短样本 HTTPS 链路测试",dp(23),10);
         LinearLayout speed=column();speed.setPadding(dp(16),dp(14),dp(16),dp(14));speed.setBackground(round(WHITE,20));page.addView(speed,matchWrap());
         LinearLayout speedHead=row();speedHead.setGravity(Gravity.CENTER_VERTICAL);speed.addView(speedHead,matchWrap());
